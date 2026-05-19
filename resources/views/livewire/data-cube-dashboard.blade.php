@@ -3,7 +3,7 @@
         leftWidth: 45,
         isResizing: false,
         isDesktop: window.innerWidth >= 1024,
-        
+
         init() {
             window.addEventListener('resize', () => {
                 this.isDesktop = window.innerWidth >= 1024;
@@ -233,7 +233,6 @@
                             </div>
                         </div>
 
-                        <!-- FACE 3: LEFT (Território / All) - Premium Steel Slate Gradient -->
                         <div 
                             @click="handleFaceClick('territorio', $event)"
                             class="absolute inset-0 flex flex-col items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all duration-300 backface-hidden shadow-[inset_0_1px_2px_rgba(255,255,255,0.4)]"
@@ -258,7 +257,6 @@
                             </div>
                         </div>
 
-                        <!-- FACE 4: RIGHT (Technical specs grid) - SOBER LIGHT BLUE/GRAY -->
                         <div 
                             class="absolute inset-0 flex flex-col items-center justify-between p-4 border border-slate-300 rounded-2xl bg-slate-50 backface-hidden shadow-[inset_0_1px_2px_rgba(255,255,255,0.4)]"
                             style="transform: rotateY(90deg) translateZ(128px); will-change: transform;"
@@ -278,7 +276,6 @@
                             </div>
                         </div>
 
-                        <!-- FACE 5: TOP (Grid Details) - SOBER LIGHT BLUE/GRAY -->
                         <div 
                             class="absolute inset-0 flex flex-col justify-between p-2 border border-slate-300 rounded-2xl bg-slate-50 backface-hidden shadow-[inset_0_1px_2px_rgba(255,255,255,0.4)]"
                             style="transform: rotateX(90deg) translateZ(128px); will-change: transform;"
@@ -297,7 +294,6 @@
                             </div>
                         </div>
 
-                        <!-- FACE 6: BOTTOM (Credits) - SOBER LIGHT BLUE/GRAY -->
                         <div 
                             class="absolute inset-0 flex flex-col items-center justify-between p-4 border border-slate-300 rounded-2xl bg-slate-50 backface-hidden shadow-[inset_0_1px_2px_rgba(255,255,255,0.4)]"
                             style="transform: rotateX(-90deg) translateZ(128px); will-change: transform;"
@@ -319,7 +315,6 @@
                 </div>
             </div>
             
-            <!-- Quick preset rotation controls underneath cube (Institutional Styling - Pushed Down mt-16) -->
             <div class="mt-16 flex items-center justify-center space-x-2 relative z-10 w-full" data-clickable>
                 <button type="button" @click="rotateTo(-20, 35)" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[10px] font-mono text-slate-700 rounded-md transition duration-200 shadow-sm">
                     Frontal
@@ -336,7 +331,6 @@
             </div>
         </div>
 
-        <!-- Filters status & instructions -->
         <div class="border-t border-slate-200 pt-4 relative z-10">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-semibold text-slate-600">Filtro Aplicado no Cubo:</span>
@@ -368,22 +362,17 @@
         </div>
     </div>
 
-    <!-- RESIZABLE DIVIDER BAR (Institutional Style) -->
     <div class="hidden lg:block w-1.5 hover:w-2 bg-slate-200 hover:bg-blue-600 cursor-col-resize transition-all duration-150 flex-shrink-0 relative z-20 group"
          @mousedown="startResize($event)"
          @touchstart="startResize($event)">
-         <!-- Visual divider line -->
          <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] bg-slate-300 group-hover:bg-blue-300"></div>
     </div>
 
-    <!-- RIGHT COLUMN: Heatmap Matrix & Science Correlation Panel (Resizable split-screen) -->
     <div class="w-full flex flex-col justify-between bg-[#f8fafc] h-full overflow-y-auto"
          :style="isDesktop ? 'width: ' + (100 - leftWidth) + '%' : ''">
         
-        <!-- Matrix Card Container -->
         <div class="p-6 bg-white relative overflow-hidden flex-grow flex flex-col border-b border-slate-200">
             
-            <!-- Header/Legenda -->
             <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 pb-4 mb-4 space-y-2 md:space-y-0">
                 <div>
                     <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-2 uppercase tracking-wider font-sans">
@@ -392,7 +381,6 @@
                     <p class="text-xs text-slate-500 mt-0.5">Mapeamento dos níveis de incidência e cruzamentos territoriais.</p>
                 </div>
                 
-                <!-- Density Color Legend (Flat Light Theme) -->
                 <div class="flex items-center space-x-3 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
                     <span class="text-[9px] font-mono text-slate-500 uppercase font-semibold">Legenda:</span>
                     <div class="flex items-center space-x-2.5">
@@ -416,16 +404,13 @@
                 </div>
             </div>
 
-            <!-- Heatmap Table Matrix -->
             <div class="overflow-x-auto w-full flex-grow">
                 <table class="w-full border-collapse select-none">
                     <thead>
                         <tr>
-                            <!-- Top Left Empty Header / Indicator Title -->
                             <th class="p-3 text-left text-xs font-mono text-slate-400 border-b border-slate-200 font-semibold tracking-wider min-w-[200px]">
                                 Indicador Científico
                             </th>
-                            <!-- Region Headers -->
                             @foreach ($regions as $region)
                                 <th class="p-3 text-center text-[10px] font-mono text-slate-600 border-b border-slate-200 font-bold tracking-wider max-w-[100px] leading-tight">
                                     <div class="px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700">
@@ -437,7 +422,6 @@
                     </thead>
                     <tbody>
                         @forelse ($categories as $category)
-                            <!-- Category Separator Row (Institutional Blue) -->
                             <tr class="bg-blue-50/40">
                                 <td colspan="{{ count($regions) + 1 }}" class="p-2 border-y border-blue-100/60 text-xs font-bold tracking-wider text-blue-800 uppercase pl-3 bg-gradient-to-r from-blue-50 via-transparent to-transparent">
                                     <div class="flex items-center space-x-2">
@@ -447,15 +431,12 @@
                                 </td>
                             </tr>
                             
-                            <!-- Indicators under this category -->
                             @foreach ($category->indicators as $indicator)
                                 <tr class="hover:bg-slate-50/70 transition border-b border-slate-100">
-                                    <!-- Indicator Name -->
                                     <td class="p-3 text-xs font-semibold text-slate-700 leading-normal pl-4">
                                         {{ $indicator->name }}
                                     </td>
                                     
-                                    <!-- Region Values -->
                                     @foreach ($regions as $region)
                                         @php
                                             $cellKey = $indicator->id . '-' . $region->id;
@@ -477,7 +458,6 @@
                                                         @else bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200/80 hover:text-slate-600 @endif
                                                         @if ($isSelected) ring-4 ring-blue-600 scale-105 z-10 shadow-md @endif"
                                                 >
-                                                    <!-- Glowing target dot for selected cell -->
                                                     @if ($isSelected)
                                                         <span class="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                                                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
@@ -538,7 +518,6 @@
             </div>
 
             @if ($cellDetails)
-                <!-- Detailed report of the scientific correlation -->
                 <div class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div class="bg-white p-2.5 rounded-lg border border-slate-200">

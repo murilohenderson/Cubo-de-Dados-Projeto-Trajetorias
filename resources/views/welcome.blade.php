@@ -42,27 +42,9 @@
                 </div>
                 <div class="h-6 w-[1px] bg-slate-200"></div>
                 <div>
-                    <div class="flex items-center space-x-2">
-                        <span class="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase">Governo Federal — MCTI &amp; MS</span>
-                        <span class="px-1.5 py-0.2 rounded bg-blue-50 text-[8px] font-mono text-blue-900 border border-blue-200 uppercase font-bold">Portal de Pesquisa</span>
-                    </div>
                     <h1 class="text-sm font-bold tracking-tight text-slate-900 uppercase font-sans">
                         Plataforma Trajetórias — Hipercubo de Indicadores Co-relacionados
                     </h1>
-                </div>
-            </div>
-
-            <!-- Live node status indicators -->
-            <div class="flex items-center space-x-4 text-[10px] font-mono text-slate-500">
-                <div class="flex items-center space-x-2 bg-slate-100 px-3 py-1 rounded border border-slate-200">
-                    <span class="h-2 w-2 rounded-full bg-blue-900"></span>
-                    <span>Hipercubo 4D:</span>
-                    <span class="font-bold text-blue-900">ATIVO</span>
-                </div>
-                <div class="flex items-center space-x-2 bg-slate-100 px-3 py-1 rounded border border-slate-200">
-                    <span class="h-2 w-2 rounded-full bg-blue-900"></span>
-                    <span>Sincronização:</span>
-                    <span class="font-bold text-blue-900">CONCLUÍDA</span>
                 </div>
             </div>
         </header>
