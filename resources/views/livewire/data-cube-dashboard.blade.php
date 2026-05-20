@@ -80,7 +80,7 @@
     </style>
 
     <!-- LEFT COLUMN: 3D Data Cube (Resizable split-screen) -->
-    <div class="w-full flex flex-col justify-between bg-[radial-gradient(circle_at_50%_45%,rgba(186,218,255,0.9)_0%,rgba(255,255,255,1)_85%)] p-6 relative overflow-y-auto h-full flex-shrink-0 border-b border-slate-200 lg:border-b-0"
+    <div class="w-full flex flex-col justify-between bg-[radial-gradient(circle_at_50%_45%,#cbd5e1_0%,#f1f5f9_65%,#f8fafc_100%)] p-6 relative overflow-y-auto h-full flex-shrink-0 border-b border-slate-200 lg:border-b-0"
          :style="isDesktop ? 'width: ' + leftWidth + '%' : ''">
         
         <!-- Header Info -->
