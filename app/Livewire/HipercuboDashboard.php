@@ -359,67 +359,254 @@ class HipercuboDashboard extends Component
     }
 
     /**
+     * Extrai o valor numérico de casos de doenças.
+     *
+     * @param string $territory
+     * @param string $disease
+     * @return int
+     */
+    public function getDiseaseCasesNumeric(string $territory, string $disease): int
+    {
+        $casesStr = $this->getDiseaseCases($territory, $disease);
+        preg_match('/\d+/', $casesStr, $matches);
+        return isset($matches[0]) ? (int)$matches[0] : 0;
+    }
+
+    /**
+     * Extrai o valor numérico dos indicadores.
+     *
+     * @param string $territory
+     * @param string $indicator
+     * @return float
+     */
+    public function getIndicatorValueNumeric(string $territory, string $indicator): float
+    {
+        $valStr = $this->getIndicatorValue($territory, $indicator);
+        $valStr = str_replace(',', '.', $valStr);
+        preg_match('/[+-]?([0-9]*[.])?[0-9]+/', $valStr, $matches);
+        return isset($matches[0]) ? (float)$matches[0] : 0.0;
+    }
+
+    /**
      * Generates simulated multi-year dataset for drill-down Chart analysis.
      *
      * @param string $territory
      * @param string $disease
      * @return array
      */
-    public function getHistoricalData(string $territory, string $disease): array
-    {
-        $years = ['2020', '2021', '2022', '2023', '2024', '2025'];
-        $seed = crc32($territory . $disease . $this->data_inicio . $this->data_fim);
-        $series = [];
-        
-        $base = abs($seed % 80) + 15;
-        foreach ($years as $index => $year) {
-            $fluctuation = sin($index + $seed) * ($base * 0.25) + (($index * 0.1) * $base);
-            $value = max(0, (int)round($base + $fluctuation));
-            $series[] = [
-                'year' => $year,
-                'cases' => $value
-            ];
-        }
+     public function getHistoricalData(string $territory, string $disease): array
+     {
+         try {
+             $startDate = new \DateTime($this->data_inicio);
+             $endDate = new \DateTime($this->data_fim);
+         } catch (\Exception $e) {
+             $startDate = new \DateTime('2025-01-01');
+             $endDate = new \DateTime('2025-12-31');
+         }
 
-        return [
-            'territory' => $territory,
-            'disease' => $disease,
-            'series' => $series
-        ];
-    }
+         if ($startDate > $endDate) {
+             $temp = $startDate;
+             $startDate = $endDate;
+             $endDate = $temp;
+         }
+
+         $interval = $startDate->diff($endDate);
+         $monthsDiff = ($interval->y * 12) + $interval->m;
+         
+         $series = [];
+         if ($monthsDiff >= 1 && $monthsDiff <= 24) {
+             $monthsBr = [
+                 'Jan' => 'Jan', 'Feb' => 'Fev', 'Mar' => 'Mar', 'Apr' => 'Abr', 'May' => 'Mai', 'Jun' => 'Jun',
+                 'Jul' => 'Jul', 'Aug' => 'Ago', 'Sep' => 'Set', 'Oct' => 'Out', 'Nov' => 'Nov', 'Dec' => 'Dez'
+             ];
+             $current = clone $startDate;
+             for ($i = 0; $i <= $monthsDiff; $i++) {
+                 $shortMonth = $monthsBr[$current->format('M')] . '/' . $current->format('y');
+                 $seedMonth = crc32($territory . $disease . $this->selectedInd1 . $this->selectedInd2 . $shortMonth);
+                 $base = abs($seedMonth % 40) + 5;
+                 $value = max(0, (int)round($base + sin($i) * ($base * 0.25)));
+                 
+                 $series[] = [
+                     'year' => $shortMonth,
+                     'cases' => $value
+                 ];
+                 $current->modify('+1 month');
+             }
+         } else {
+             $startYear = (int)$startDate->format('Y');
+             $endYear = (int)$endDate->format('Y');
+             if ($endYear - $startYear > 15) {
+                 $startYear = $endYear - 15;
+             }
+             if ($startYear === $endYear) {
+                 $years = [(string)$startYear];
+             } else {
+                 $years = [];
+                 for ($y = $startYear; $y <= $endYear; $y++) {
+                     $years[] = (string)$y;
+                 }
+             }
+             
+             $base = abs(crc32($territory . $disease . $this->selectedInd1 . $this->selectedInd2) % 65) + 15;
+             foreach ($years as $index => $year) {
+                 $seedYear = crc32($territory . $disease . $this->selectedInd1 . $this->selectedInd2 . $year);
+                 $fluctuation = sin($index + $seedYear) * ($base * 0.2) + (($index * 0.1) * $base);
+                 $value = max(0, (int)round($base + $fluctuation));
+                 
+                 $series[] = [
+                     'year' => $year,
+                     'cases' => $value
+                 ];
+             }
+         }
+
+         return [
+             'territory' => $territory,
+             'disease' => $disease,
+             'series' => $series
+         ];
+     }
+
+     /**
+      * Calcula o perfil de risco multidimensional para o território baseado nos eixos ambiental, social, sanitário, econômico e populacional.
+      *
+      * @param string $territory
+      * @return array
+      */
+     public function getRadarData(string $territory): array
+     {
+         $seed = crc32($territory . $this->selectedInd1 . $this->selectedInd2 . $this->data_inicio . $this->data_fim);
+         
+         if ($territory === 'Cametá') {
+             return [
+                 abs($seed % 15) + 55, // Ambiental
+                 abs(($seed >> 2) % 10) + 40, // Vulnerabilidade Social
+                 abs(($seed >> 4) % 8) + 85, // Risco de Infraestrutura Sanitária (saneamento invertido)
+                 abs(($seed >> 6) % 15) + 45, // Pressão Econômica
+                 abs(($seed >> 8) % 12) + 60  // Densidade Demográfica Rural
+             ];
+         }
+         if ($territory === 'Mocajuba') {
+             return [
+                 abs($seed % 15) + 35, // Ambiental
+                 abs(($seed >> 2) % 10) + 38, // Vulnerabilidade Social
+                 abs(($seed >> 4) % 8) + 90, // Risco de Infraestrutura Sanitária
+                 abs(($seed >> 6) % 12) + 20, // Pressão Econômica
+                 abs(($seed >> 8) % 10) + 45  // Densidade Demográfica Rural
+             ];
+         }
+         if ($territory === 'Baião') {
+             return [
+                 abs($seed % 15) + 80, // Ambiental
+                 abs(($seed >> 2) % 10) + 45, // Vulnerabilidade Social
+                 abs(($seed >> 4) % 6) + 93, // Risco de Infraestrutura Sanitária
+                 abs(($seed >> 6) % 20) + 65, // Pressão Econômica
+                 abs(($seed >> 8) % 10) + 30  // Densidade Demográfica Rural
+             ];
+         }
+
+         return [50, 50, 50, 50, 50];
+     }
+
+     /**
+      * Gera dados de dispersão ecológica correlacionando o indicador ativo e os casos da doença vetorial.
+      *
+      * @param string $territory
+      * @param string $disease
+      * @param string $indicator
+      * @return array
+      */
+     public function getCorrelationData(string $territory, string $disease, string $indicator): array
+     {
+         $historical = $this->getHistoricalData($territory, $disease);
+         $series = $historical['series'];
+         
+         $points = [];
+         $seedInd = crc32($territory . $indicator . $this->data_inicio . $this->data_fim);
+         
+         $isNegative = str_contains(mb_strtolower($indicator), 'saneamento') || str_contains(mb_strtolower($indicator), 'acesso');
+         
+         $baseInd = abs($seedInd % 50) + ($isNegative ? 60 : 15);
+         
+         foreach ($series as $index => $item) {
+             $period = $item['year'];
+             $cases = $item['cases'];
+             
+             $noise = sin($index * 1.7) * ($baseInd * 0.1);
+             if ($isNegative) {
+                 $indVal = max(0, $baseInd - ($cases * 0.25) + $noise);
+             } else {
+                 $indVal = max(0, $baseInd + ($cases * 0.6) + $noise);
+             }
+             
+             $points[] = [
+                 'x' => round($indVal, 1),
+                 'y' => $cases,
+                 'period' => $period
+             ];
+         }
+         
+         return $points;
+     }
+
+     /**
+      * Selects a specific cell inside the matrix and opens drilldown modal.
+      *
+      * @param string $territory
+      * @param string $rowIndicator
+      */
+     public function selectCell(string $territory, string $rowIndicator)
+     {
+         $mapping = $this->faceMappings[$this->activeFace];
+         $riskLevel = $this->getRiskLevel($territory, $rowIndicator);
+         $evidenceText = $this->generateEvidence($territory, $rowIndicator, $riskLevel);
+
+         $ind1_val = $this->getIndicatorValue($territory, $this->selectedInd1);
+         $ind2_val = $this->getIndicatorValue($territory, $this->selectedInd2);
+         $disease_val = $this->getDiseaseCases($territory, $rowIndicator);
+
+         $this->selectedCell = [
+             'territory' => $territory,
+             'row_indicator' => $rowIndicator,
+             'risk_level' => $riskLevel,
+             'evidence_text' => $evidenceText,
+             'indicator_1' => $this->selectedInd1,
+             'indicator_2' => $this->selectedInd2,
+             'ind1_val' => $ind1_val,
+             'ind2_val' => $ind2_val,
+             'disease_val' => $disease_val,
+             'dim_1_label' => $this->dimensions[$mapping['key1']]['short'],
+             'dim_2_label' => $this->dimensions[$mapping['key2']]['short'],
+             'timestamp' => now()->format('H:i:s')
+         ];
+         
+         $this->dispatch('update-map');
+         $this->dispatch('selected-cell-updated', [
+             'disease' => $rowIndicator,
+             'territory' => $territory,
+             'historical' => $this->getHistoricalData($territory, $rowIndicator)['series'],
+             'comparison' => array_map(fn($t) => $this->getDiseaseCasesNumeric($t, $rowIndicator), $this->territories),
+             'radar' => $this->getRadarData($territory),
+             'correlation' => $this->getCorrelationData($territory, $rowIndicator, $this->selectedInd1),
+             'indicator' => $this->selectedInd1
+         ]);
+     }
 
     /**
-     * Selects a specific cell inside the matrix and opens drilldown modal.
+     * Seleciona a primeira célula que possui o nível de risco especificado.
      *
-     * @param string $territory
-     * @param string $rowIndicator
+     * @param int $targetRisk
      */
-    public function selectCell(string $territory, string $rowIndicator)
+    public function selectFirstCellOfRisk(int $targetRisk)
     {
-        $mapping = $this->faceMappings[$this->activeFace];
-        $riskLevel = $this->getRiskLevel($territory, $rowIndicator);
-        $evidenceText = $this->generateEvidence($territory, $rowIndicator, $riskLevel);
-
-        $ind1_val = $this->getIndicatorValue($territory, $this->selectedInd1);
-        $ind2_val = $this->getIndicatorValue($territory, $this->selectedInd2);
-        $disease_val = $this->getDiseaseCases($territory, $rowIndicator);
-
-        $this->selectedCell = [
-            'territory' => $territory,
-            'row_indicator' => $rowIndicator,
-            'risk_level' => $riskLevel,
-            'evidence_text' => $evidenceText,
-            'indicator_1' => $this->selectedInd1,
-            'indicator_2' => $this->selectedInd2,
-            'ind1_val' => $ind1_val,
-            'ind2_val' => $ind2_val,
-            'disease_val' => $disease_val,
-            'dim_1_label' => $this->dimensions[$mapping['key1']]['short'],
-            'dim_2_label' => $this->dimensions[$mapping['key2']]['short'],
-            'timestamp' => now()->format('H:i:s')
-        ];
-
-        $this->dispatch('update-map');
+        foreach ($this->dimensions['epidemiologica']['indicators'] as $disease) {
+            foreach ($this->territories as $territory) {
+                if ($this->getRiskLevel($territory, $disease) === $targetRisk) {
+                    $this->selectCell($territory, $disease);
+                    return;
+                }
+            }
+        }
     }
 
     /**

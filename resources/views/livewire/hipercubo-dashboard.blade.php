@@ -794,22 +794,22 @@
                                     </button>
                                     
                                     <div x-show="legendOpen" x-transition class="grid grid-cols-2 gap-2 mt-3 pt-2.5 border-t border-slate-200/60">
-                                        <div class="flex items-center space-x-1.5">
-                                            <span class="h-3 w-3 rounded bg-rose-600 border border-rose-700 block"></span>
-                                            <span class="text-slate-650 font-medium">Nível 4 (Crítico)</span>
-                                        </div>
-                                        <div class="flex items-center space-x-1.5">
-                                            <span class="h-3 w-3 rounded bg-amber-500 border border-amber-600 block"></span>
-                                            <span class="text-slate-650 font-medium">Nível 3 (Alto)</span>
-                                        </div>
-                                        <div class="flex items-center space-x-1.5">
-                                            <span class="h-3 w-3 rounded bg-yellow-400 border border-yellow-500 block"></span>
-                                            <span class="text-slate-650 font-medium">Nível 2 (Moderado)</span>
-                                        </div>
-                                        <div class="flex items-center space-x-1.5">
-                                            <span class="h-3 w-3 rounded bg-slate-100 border border-slate-200 block"></span>
-                                            <span class="text-slate-650 font-medium">Nível 1 (Baseline)</span>
-                                        </div>
+                                        <button type="button" wire:click="selectFirstCellOfRisk(4)" class="flex items-center space-x-1.5 p-1 rounded-lg border border-slate-100 bg-white hover:bg-slate-50 transition text-left focus:outline-none shadow-2xs">
+                                            <span class="h-3 w-3 rounded bg-rose-600 border border-rose-700 block flex-shrink-0"></span>
+                                            <span class="text-slate-650 font-semibold text-[10px]">Nível 4 (Crítico)</span>
+                                        </button>
+                                        <button type="button" wire:click="selectFirstCellOfRisk(3)" class="flex items-center space-x-1.5 p-1 rounded-lg border border-slate-100 bg-white hover:bg-slate-50 transition text-left focus:outline-none shadow-2xs">
+                                            <span class="h-3 w-3 rounded bg-amber-500 border border-amber-600 block flex-shrink-0"></span>
+                                            <span class="text-slate-650 font-semibold text-[10px]">Nível 3 (Alto)</span>
+                                        </button>
+                                        <button type="button" wire:click="selectFirstCellOfRisk(2)" class="flex items-center space-x-1.5 p-1 rounded-lg border border-slate-100 bg-white hover:bg-slate-50 transition text-left focus:outline-none shadow-2xs">
+                                            <span class="h-3 w-3 rounded bg-yellow-400 border border-yellow-500 block flex-shrink-0"></span>
+                                            <span class="text-slate-650 font-semibold text-[10px]">Nível 2 (Moderado)</span>
+                                        </button>
+                                        <button type="button" wire:click="selectFirstCellOfRisk(1)" class="flex items-center space-x-1.5 p-1 rounded-lg border border-slate-100 bg-white hover:bg-slate-50 transition text-left focus:outline-none shadow-2xs">
+                                            <span class="h-3 w-3 rounded bg-slate-100 border border-slate-200 block flex-shrink-0"></span>
+                                            <span class="text-slate-650 font-semibold text-[10px]">Nível 1 (Baseline)</span>
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="text-[10px] text-slate-500 leading-relaxed space-y-1">
@@ -939,6 +939,125 @@
                                 <div class="text-[10px] text-slate-500 bg-slate-50 p-3.5 border border-slate-200/60 rounded-xl leading-relaxed mt-3">
                                     <p class="font-bold text-slate-700">Explicação do Mapa Cartográfico Real:</p>
                                     <p>A camada coroplética com círculos proporcionais pulsantes ilustra a intensidade espacial dos riscos vetoriais. Ao se basear em dados latitudinais e longitudinais reais, é possível inferir a influência geoecológica dos cursos d'água adjacentes e das rodovias de conexão regional.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- PAINEL DE ANÁLISE AVANÇADA - 6 GRÁFICOS CIENTÍFICOS -->
+                        @php
+                            $chartHistorical = $this->getHistoricalData($selectedCell['territory'], $selectedCell['row_indicator'])['series'];
+                            $chartComparison = array_map(fn($t) => $this->getDiseaseCasesNumeric($t, $selectedCell['row_indicator']), $this->territories);
+                            $chartRadar = $this->getRadarData($selectedCell['territory']);
+                            $chartCorrelation = $this->getCorrelationData($selectedCell['territory'], $selectedCell['row_indicator'], $selectedInd1);
+                            
+                            $allDiseasesData = [];
+                            foreach($this->dimensions['epidemiologica']['indicators'] as $d) {
+                                $allDiseasesData[$d] = array_map(fn($t) => $this->getDiseaseCasesNumeric($t, $d), $this->territories);
+                            }
+                            
+                            $riskDistribution = [0, 0, 0, 0];
+                            foreach($this->dimensions['epidemiologica']['indicators'] as $d) {
+                                foreach($this->territories as $t) {
+                                    $rl = $this->getRiskLevel($t, $d);
+                                    $riskDistribution[$rl - 1]++;
+                                }
+                            }
+                            
+                            $periodLabel = $data_inicio . ' a ' . $data_fim;
+                        @endphp
+                        <div x-data="dashboardCharts({
+                                disease: '{{ $selectedCell['row_indicator'] }}',
+                                territory: '{{ $selectedCell['territory'] }}',
+                                historical: {{ json_encode($chartHistorical) }},
+                                comparison: {{ json_encode($chartComparison) }},
+                                radar: {{ json_encode($chartRadar) }},
+                                correlation: {{ json_encode($chartCorrelation) }},
+                                indicator: '{{ $selectedInd1 }}',
+                                allDiseases: {{ json_encode($allDiseasesData) }},
+                                riskDistribution: {{ json_encode($riskDistribution) }},
+                                periodLabel: '{{ $periodLabel }}'
+                             })"
+                             x-on:selected-cell-updated.window="updateCharts($event.detail)"
+                             wire:ignore
+                             class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs mt-4 space-y-5"
+                        >
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-1">
+                                <span class="text-[9px] font-mono text-slate-500 uppercase font-black tracking-widest block">Painel de Análise Avançada — Período Selecionado</span>
+                                <span class="text-[9px] font-mono text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-100" x-text="currentPeriodLabel"></span>
+                            </div>
+                            
+                            <!-- ROW 1: Progressão Temporal + Comparativo Territorial -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 relative">
+                                    <h5 class="text-[10px] font-mono font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <span class="h-2 w-2 rounded-full bg-rose-500 inline-block"></span>
+                                        Progressão Temporal de Casos
+                                    </h5>
+                                    <p class="text-[9px] text-slate-500 mb-2 leading-snug">Evolução da incidência no período selecionado para o município e doença ativos.</p>
+                                    <div class="h-48 relative w-full">
+                                        <canvas id="dashboardLineChart"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 relative">
+                                    <h5 class="text-[10px] font-mono font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <span class="h-2 w-2 rounded-full bg-blue-900 inline-block"></span>
+                                        Incidência Territorial Comparada
+                                    </h5>
+                                    <p class="text-[9px] text-slate-500 mb-2 leading-snug">Comparação de casos entre os três municípios do Baixo Tocantins para a doença selecionada.</p>
+                                    <div class="h-48 relative w-full">
+                                        <canvas id="dashboardBarChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ROW 2: Radar Multidimensional + Dispersão Ecológica -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 relative">
+                                    <h5 class="text-[10px] font-mono font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <span class="h-2 w-2 rounded-full bg-emerald-600 inline-block"></span>
+                                        Perfil de Risco Multidimensional
+                                    </h5>
+                                    <p class="text-[9px] text-slate-500 mb-2 leading-snug">Mapeamento de 5 eixos de vulnerabilidade: ambiental, social, sanitário, econômico e demográfico.</p>
+                                    <div class="h-52 relative w-full">
+                                        <canvas id="dashboardRadarChart"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 relative">
+                                    <h5 class="text-[10px] font-mono font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <span class="h-2 w-2 rounded-full bg-violet-600 inline-block"></span>
+                                        Dispersão Ecológica (Correlação)
+                                    </h5>
+                                    <p class="text-[9px] text-slate-500 mb-2 leading-snug">Relação entre o indicador ativo e os casos da doença vetorial por período.</p>
+                                    <div class="h-52 relative w-full">
+                                        <canvas id="dashboardScatterChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ROW 3: Multi-Doença + Distribuição de Risco -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 relative">
+                                    <h5 class="text-[10px] font-mono font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <span class="h-2 w-2 rounded-full bg-amber-500 inline-block"></span>
+                                        Comparativo Multi-Doença por Território
+                                    </h5>
+                                    <p class="text-[9px] text-slate-500 mb-2 leading-snug">Panorama geral de todas as doenças vetoriais nos três municípios.</p>
+                                    <div class="h-52 relative w-full">
+                                        <canvas id="dashboardGroupedBarChart"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-slate-50/80 p-3.5 rounded-lg border border-slate-200/60 relative">
+                                    <h5 class="text-[10px] font-mono font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <span class="h-2 w-2 rounded-full bg-slate-600 inline-block"></span>
+                                        Distribuição de Níveis de Risco
+                                    </h5>
+                                    <p class="text-[9px] text-slate-500 mb-2 leading-snug">Proporção de classificações de risco (Crítico, Alto, Moderado, Baseline) na matriz ativa.</p>
+                                    <div class="h-52 relative w-full flex items-center justify-center">
+                                        <canvas id="dashboardDoughnutChart"></canvas>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1121,5 +1240,155 @@
                 btn.disabled = false;
             });
         }
+    }
+</script>
+
+<!-- CHART.JS INTEGRATION RUNTIME FOR MAIN DASHBOARD -->
+<script>
+    if (window.Alpine) {
+        registerAlpineCharts();
+    } else {
+        document.addEventListener('alpine:init', registerAlpineCharts);
+    }
+
+    function registerAlpineCharts() {
+        if (window.Alpine.components && window.Alpine.components['dashboardCharts']) return;
+        
+        Alpine.data('dashboardCharts', (initialData) => ({
+            lineChart: null,
+            barChart: null,
+            
+            init() {
+                this.$nextTick(() => {
+                    this.initCharts(initialData);
+                });
+            },
+            
+            initCharts(data) {
+                const lineCtx = document.getElementById('dashboardLineChart');
+                const barCtx = document.getElementById('dashboardBarChart');
+                
+                if (!lineCtx || !barCtx) return;
+                
+                // 1. Line Chart
+                const lineLabels = data.historical.map(item => item.year);
+                const lineValues = data.historical.map(item => item.cases);
+                
+                this.lineChart = new Chart(lineCtx, {
+                    type: 'line',
+                    data: {
+                        labels: lineLabels,
+                        datasets: [{
+                            label: `Casos de ${data.disease} em ${data.territory}`,
+                            data: lineValues,
+                            borderColor: 'rgb(225, 29, 72)',
+                            backgroundColor: 'rgba(225, 29, 72, 0.08)',
+                            borderWidth: 2.5,
+                            fill: true,
+                            tension: 0.35,
+                            pointBackgroundColor: 'rgb(225, 29, 72)',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 1.5,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: {
+                                    boxWidth: 12,
+                                    font: { family: 'Inter', size: 9, weight: 'bold' }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                                ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                            }
+                        }
+                    }
+                });
+                
+                // 2. Bar Chart
+                const territories = ['Baião', 'Cametá', 'Mocajuba'];
+                this.barChart = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: territories,
+                        datasets: [{
+                            label: `Casos Locais (${data.disease})`,
+                            data: data.comparison,
+                            backgroundColor: territories.map(t => t === data.territory ? 'rgba(30, 58, 138, 0.85)' : 'rgba(148, 163, 184, 0.5)'),
+                            borderColor: territories.map(t => t === data.territory ? 'rgb(30, 58, 138)' : 'rgb(148, 163, 184)'),
+                            borderWidth: 1.5,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: {
+                                    boxWidth: 12,
+                                    font: { family: 'Inter', size: 9, weight: 'bold' }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                                ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                            }
+                        }
+                    }
+                });
+            },
+            
+            updateCharts(detail) {
+                if (!this.lineChart || !this.barChart) {
+                    this.initCharts({
+                        disease: detail.disease,
+                        territory: detail.territory,
+                        historical: detail.historical,
+                        comparison: detail.comparison
+                    });
+                    return;
+                }
+                
+                // Update Line Chart
+                const lineLabels = detail.historical.map(item => item.year);
+                const lineValues = detail.historical.map(item => item.cases);
+                
+                this.lineChart.data.labels = lineLabels;
+                this.lineChart.data.datasets[0].label = `Casos de ${detail.disease} em ${detail.territory}`;
+                this.lineChart.data.datasets[0].data = lineValues;
+                this.lineChart.update();
+                
+                // Update Bar Chart
+                const territories = ['Baião', 'Cametá', 'Mocajuba'];
+                this.barChart.data.datasets[0].label = `Casos Locais (${detail.disease})`;
+                this.barChart.data.datasets[0].data = detail.comparison;
+                this.barChart.data.datasets[0].backgroundColor = territories.map(t => t === detail.territory ? 'rgba(30, 58, 138, 0.85)' : 'rgba(148, 163, 184, 0.5)');
+                this.barChart.data.datasets[0].borderColor = territories.map(t => t === detail.territory ? 'rgb(30, 58, 138)' : 'rgb(148, 163, 184)');
+                this.barChart.update();
+            }
+        }));
     }
 </script>
