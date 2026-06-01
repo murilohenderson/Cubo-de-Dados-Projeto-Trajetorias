@@ -15,22 +15,22 @@ O coração tecnológico da plataforma consiste em um **Cubo de Dados Multidimen
 ## Características Inovadoras e Funcionalidades
 
 1. **Hipercubo 3D Interativo:** 
-   - Rotação espacial tridimensional do cubo por meio de uma interface CSS3 elegante.
-   - Cada face representa o cruzamento exato e exclusivo de 2 eixos temáticos (6 faces únicas sem redundância).
+   - Rotação espacial tridimensional do cubo por meio de uma interface CSS3.
+   - Cada face representa o cruzamento exato e exclusivo de 2 eixos (6 faces únicas s/redundância).
 2. **Matrizes Dinâmicas de Correlação & Calor (Heatmaps):**
    - Cruzamento automatizado de variáveis e municípios com gradientes visuais baseados em quartis de risco.
    - Respostas instantâneas e reativas via **Laravel Livewire** sem a necessidade de recarregar a página.
 3. **Modo Comparativo de Alta Performance (Split Screen):**
    - Permite duplicar o painel visual e comparar diferentes faces do cubo (ex.: Efeito Ambiental vs. Efeito Econômico) de forma síncrona.
 4. **Algoritmo Científico de Risco Baseado em Quartis:**
-   - Classificação municipal inteligente (Nível de Risco 1 a 4) calculada dinamicamente com base nas taxas de incidência locais.
+   - Classificação municipal (Nível de Risco 1 a 4) calculada dinamicamente com base nas taxas de incidência locais.
 5. **Painel de Evidências e Análise Drill-down:**
    - Seleção de células para abertura de modais com detalhamento científico profundo.
    - Gráficos de linhas e barras interativos integrados com **Chart.js**, exibindo séries históricas completas e tendências.
 6. **Mapeamento Coroplético Georreferenciado:**
    - Integração nativa com **Leaflet JS** para exibir indicadores espacializados nos polígonos dos municípios mapeados.
 7. **Pipeline de Carga de Dados Robusto:**
-   - Mecanismo automatizado de parse e tratamento de dados de planilhas CSV reais do INPE, IBGE e SUS/Fiocruz, incluindo a resolução inteligente de divergências de dígitos de controle do IBGE.
+   - Mecanismo automatizado de parse e tratamento de dados de planilhas CSV reais do INPE, IBGE e SUS/Fiocruz.
 
 ---
 
