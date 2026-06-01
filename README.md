@@ -12,7 +12,7 @@ O coração tecnológico da plataforma consiste em um **Cubo de Dados Multidimen
 
 ---
 
-## Características Inovadoras e Funcionalidades
+## Características e Funcionalidades
 
 1. **Hipercubo 3D Interativo:** 
    - Rotação espacial tridimensional do cubo por meio de uma interface CSS3.
