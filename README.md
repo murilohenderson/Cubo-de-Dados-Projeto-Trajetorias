@@ -1,5 +1,5 @@
-# 🗺️ Plataforma Trajetórias — Cubo de Dados Multidimensional
-## 🏛️ Portal Científico INPE/Fiocruz (Região do Baixo Tocantins)
+# Plataforma Trajetórias — Cubo de Dados Multidimensional
+## Portal Científico INPE/Fiocruz (Região do Baixo Tocantins)
 
 [![Laravel 10](https://img.shields.io/badge/Laravel-10.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
 [![Livewire 3](https://img.shields.io/badge/Livewire-3.x-4e56a6?style=for-the-badge&logo=livewire&logoColor=white)](https://livewire.laravel.com)
@@ -12,7 +12,7 @@ O coração tecnológico da plataforma consiste em um **Cubo de Dados Multidimen
 
 ---
 
-## 💎 Características Inovadoras e Funcionalidades
+## Características Inovadoras e Funcionalidades
 
 1. **Hipercubo 3D Interativo:** 
    - Rotação espacial tridimensional do cubo por meio de uma interface CSS3 elegante.
@@ -34,7 +34,7 @@ O coração tecnológico da plataforma consiste em um **Cubo de Dados Multidimen
 
 ---
 
-## 📐 Arquitetura do Cubo de Dados (Eixos & Faces)
+## Arquitetura do Cubo de Dados (Eixos & Faces)
 
 O sistema organiza a informação em **4 Eixos Principais (Dimensões)**. A combinação desses eixos gera **6 faces exclusivas no Cubo 3D**, descritas no fluxo abaixo:
 
@@ -74,7 +74,7 @@ graph TD
 
 ---
 
-## 🗃️ Modelagem do Banco de Dados (ERD)
+## Modelagem do Banco de Dados (ERD)
 
 A base de dados foi desenhada sob uma arquitetura de **Esquema Estrela (Star Schema)** otimizada para Data Warehouses rápidos. A tabela fato centralizada (`dados_cubo`) armazena os indicadores consolidados e faz referências rápidas às dimensões do sistema (`municipios`, `variaveis`, `eixos`).
 
@@ -126,44 +126,9 @@ erDiagram
 
 > [!NOTE]
 > Foram adicionados **índices de banco de dados compostos** nas colunas `['variavel_id', 'municipio_id']` e `['variavel_id', 'ano_periodo']` da tabela `dados_cubo` para garantir tempos de consulta submilissegundos durante as agregações de séries históricas e renderização do heatmap.
-
 ---
 
-## 🔄 Pipeline de Carga de Dados (Data Ingestion)
-
-A população do banco de dados é feita via seeding inteligente (`DataCubeSeeder.php`), o qual processa arquivos CSV provenientes de diferentes órgãos científicos públicos (INPE, Fiocruz, IBGE). 
-
-O pipeline executa as etapas de normalização e cruzamento geoespacial conforme o fluxo abaixo:
-
-```mermaid
-flowchart TD
-    A[Arquivos CSV de Entrada] -->|Dimensões Ambiental, Social e Econômica| B(Processamento Geral)
-    A -->|Dimensão Epidemiológica| C(Processamento Fiocruz/SUS)
-    
-    subgraph Normalizacao ["Etapa de Higienização e Normalização"]
-        B & C --> D{Normalizar Código IBGE}
-        D -->|Código 6 Dígitos| E[Mapear para Código Oficial 7 Dígitos com Dígito Verificador]
-        D -->|Código 7 Dígitos| F[Validar e Manter]
-        E & F --> G[Vincular ao Município Correspondente: Baião, Cametá ou Mocajuba]
-    end
-
-    G --> H{Identificar ou Criar Eixo & Variável}
-    H --> I[Gravar em dados_cubo]
-    
-    style E fill:#f9f,stroke:#333,stroke-width:2px
-    style G fill:#bbf,stroke:#333,stroke-width:2px
-    style I fill:#bfb,stroke:#333,stroke-width:2px
-```
-
-### Normalização do Código IBGE de Municípios do Baixo Tocantins:
-Muitas fontes de dados utilizam códigos IBGE desatualizados de 6 dígitos ou sem o dígito verificador. O pipeline de carga resolve essas divergências de forma automatizada:
-- **`1501204`** $\rightarrow$ Normalizado para **`1501208`** (Baião)
-- **`1502103`** $\rightarrow$ Normalizado para **`1502107`** (Cametá)
-- **`1504604`** $\rightarrow$ Normalizado para **`1504707`** (Mocajuba)
-
----
-
-## 💻 Estrutura de Diretórios do Projeto
+## Estrutura de Diretórios do Projeto
 
 Aqui está a organização estrutural do projeto, focando nos componentes fundamentais da plataforma:
 
@@ -211,7 +176,7 @@ Aqui está a organização estrutural do projeto, focando nos componentes fundam
 
 ---
 
-## 🛠️ Requisitos de Instalação
+## Requisitos de Instalação
 
 Antes de iniciar, certifique-se de possuir em sua máquina local:
 - **PHP >= 8.1** com extensões `pdo_sqlite`, `mbstring`, `xml` e `json` ativas.
@@ -220,7 +185,7 @@ Antes de iniciar, certifique-se de possuir em sua máquina local:
 
 ---
 
-## 🚀 Instalação e Execução
+## Instalação e Execução
 
 ### Passo 1: Clonar o Repositório
 ```bash
@@ -278,7 +243,7 @@ Abra o navegador e acesse **[http://localhost:8000](http://localhost:8000)**.
 
 ---
 
-## 🧪 Suíte de Testes Automatizados
+## Suíte de Testes Automatizados
 
 A plataforma conta com testes de integração unitários e de comportamento focados no componente reativo `HipercuboDashboard`. Os testes cobrem:
 - Renderização correta da página inicial e injeção do componente Livewire.
@@ -302,7 +267,7 @@ php artisan test
 
 ---
 
-## 🤝 Parceria Científica e Fomento
+## Parceria Científica e Fomento
 
 Este projeto faz parte de uma iniciativa de pesquisa avançada em saúde pública e ciências espaciais:
 
