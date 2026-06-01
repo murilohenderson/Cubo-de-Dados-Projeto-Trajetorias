@@ -16,7 +16,7 @@ class DataCubeSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Limpar tabelas para evitar duplicidade
+        // Expurgo preventivo de registros para consistência na carga incremental.
         DB::statement('PRAGMA foreign_keys = OFF;');
         DadoCubo::truncate();
         Variavel::truncate();
@@ -24,7 +24,7 @@ class DataCubeSeeder extends Seeder
         Municipio::truncate();
         DB::statement('PRAGMA foreign_keys = ON;');
 
-        // 2. Criar municípios oficiais
+        // Inicialização dos dados geográficos de referência.
         $municipiosMap = [
             '1501208' => Municipio::create([
                 'codigo_ibge' => '1501208',
@@ -46,7 +46,7 @@ class DataCubeSeeder extends Seeder
             ]),
         ];
 
-        // 3. Criar eixos do Hipercubo
+        // Definição das taxonomias de eixos estratégicos do Hipercubo.
         $eixosMap = [
             'ambiental' => Eixo::create([
                 'slug' => 'ambiental',
@@ -78,7 +78,7 @@ class DataCubeSeeder extends Seeder
             ]),
         ];
 
-        // 4. Função de normalização de IBGE
+        // Normalização e compatibilização de códigos IBGE (conversores de 6 para 7 dígitos com verificação).
         $normalizeIbge = function ($code) {
             $code = trim($code);
             $mapping = [
@@ -89,7 +89,7 @@ class DataCubeSeeder extends Seeder
             return $mapping[$code] ?? $code;
         };
 
-        // 5. Importar CSVs dimensionais (Ambiental, Populacional, Socioeconômico)
+        // Processamento dos datasets de eixos secundários (Ambiental, Social, Econômico).
         $dimFiles = [
             'public/tables/atualizado_dimensao_ambiental (1).csv' => 'ambiental',
             'public/tables/atualizado_dimensao_populacional (1).csv' => 'social',
@@ -125,7 +125,7 @@ class DataCubeSeeder extends Seeder
                     continue;
                 }
 
-                // Garantir variável criada
+                // Garantir persistência da variável no repositório.
                 $variavel = Variavel::firstOrCreate([
                     'eixo_id' => $eixo->id,
                     'nome' => $varNome,
@@ -134,7 +134,7 @@ class DataCubeSeeder extends Seeder
                     'descricao' => "Indicador de {$varNome} do eixo {$eixo->nome}."
                 ]);
 
-                // Inserir fato
+                // Persistência do registro de fato no modelo de dados estruturado.
                 DadoCubo::create([
                     'municipio_id' => $municipio->id,
                     'variavel_id' => $variavel->id,
@@ -147,7 +147,7 @@ class DataCubeSeeder extends Seeder
             fclose($file);
         }
 
-        // 6. Importar CSV Epidemiológico
+        // Processamento do dataset epidemiológico principal (casos e taxas de incidência).
         $epidemiologicoPath = 'public/tables/Indicadores_Dimensao_Epidemiologica_Limpos.csv';
         $this->command->info("Processando: {$epidemiologicoPath}");
 
@@ -175,7 +175,7 @@ class DataCubeSeeder extends Seeder
                     continue;
                 }
 
-                // Mapear nomes de doenças para exibição amigável
+                // Mapeamento semântico para padronização de nomenclatura de patologias.
                 $nomesDoencasMap = [
                     'chagas'           => 'Doença de Chagas',
                     'CL'               => 'Leishmaniose Cutânea (LTA)',
@@ -195,7 +195,7 @@ class DataCubeSeeder extends Seeder
                     'descricao' => "Casos e taxa de incidência para {$varNome}."
                 ]);
 
-                // Inserir fato com detalhes extras (zona residencial)
+                // Registro de fatos epidemiológicos com inclusão de metadados contextuais.
                 DadoCubo::create([
                     'municipio_id' => $municipio->id,
                     'variavel_id' => $variavel->id,

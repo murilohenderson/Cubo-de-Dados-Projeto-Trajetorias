@@ -246,7 +246,6 @@ class HipercuboDashboard extends Component
             return 1;
         }
 
-        // Buscar todos os registros desta doença
         $todosDados = DadoCubo::where('variavel_id', $variavel->id)->get();
 
         if ($todosDados->isEmpty()) {
@@ -256,7 +255,6 @@ class HipercuboDashboard extends Component
         $startYear = $this->getYearFromDate($this->data_inicio, 2000);
         $endYear = $this->getYearFromDate($this->data_fim, 2019);
 
-        // Função de filtro por ano e zona residencial
         $filterFunc = function($d) use ($startYear, $endYear) {
             if ($d->detalhes && isset($d->detalhes['zona_residencial']) && $d->detalhes['zona_residencial'] !== $this->zona) {
                 return false;
@@ -269,13 +267,11 @@ class HipercuboDashboard extends Component
             return $y >= $startYear && $y <= $endYear;
         };
 
-        // Filtrados para o município
         $filtradosMunicipio = $todosDados->where('municipio_id', $municipio->id)->filter($filterFunc);
         if ($filtradosMunicipio->isEmpty()) {
             return 1;
         }
 
-        // Identifica se usa taxa ou valor bruto
         $usaTaxa = $filtradosMunicipio->first()->taxa !== null;
         $valorMedioMunicipio = $usaTaxa ? $filtradosMunicipio->avg('taxa') : $filtradosMunicipio->avg('valor');
 
@@ -283,7 +279,6 @@ class HipercuboDashboard extends Component
             return 1;
         }
 
-        // Coletar valores médios de todos os municípios
         $valoresMediosOutros = [];
         $municipiosIds = Municipio::pluck('id')->toArray();
         foreach ($municipiosIds as $mId) {
@@ -305,7 +300,7 @@ class HipercuboDashboard extends Component
             return 2;
         }
 
-        // Escala normalizada linear entre min e max
+        // Normalização linear no intervalo [min, max] para enquadramento nos limiares de quartil (25%, 50%, 75%).
         $fração = ($valorMedioMunicipio - $min) / ($max - $min);
         
         if ($fração < 0.25) return 1;
@@ -508,21 +503,18 @@ class HipercuboDashboard extends Component
      */
     public function getRadarData(string $territory): array
     {
-        // 1. Eixo Ambiental: Incremento Desflorestamento (máx ~350) + Focos de calor (máx ~200)
         $desmatamento = $this->getIndicatorValueNumeric($territory, 'Incremento Desflorestamento');
         $queimadas = $this->getIndicatorValueNumeric($territory, 'Focos de Calor');
         
         $ambScore = min(100, max(20, (($desmatamento / 350) * 50) + (($queimadas / 200) * 50)));
 
-        // 2. Eixo Econômico: PIB per capita (máx ~10000)
         $pib = $this->getIndicatorValueNumeric($territory, 'PIB per capita');
         $econScore = min(100, max(15, ($pib / 10000) * 100));
 
-        // 3. Eixo Demográfico/Social: População Total (máx ~150000)
         $pop = $this->getIndicatorValueNumeric($territory, 'Populacao Total');
         $popScore = min(100, max(15, ($pop / 150000) * 100));
 
-        // Metadados fixos de apoio baseados no plano socioecológico regional:
+        // Metadados de vulnerabilidade socioecológica regional
         $riscoSaneamento = 100;
         if ($territory === 'Cametá') $riscoSaneamento = 85;
         if ($territory === 'Mocajuba') $riscoSaneamento = 90;
@@ -566,7 +558,7 @@ class HipercuboDashboard extends Component
             }
             $period = $d->ano_periodo;
             
-            // Determinar o intervalo temporal para fazer a média do indicador anual
+            // Mapeamento de intervalos temporais compostos (ex.: "2004-2008") ou consolidados anuais (ex.: "2015").
             $startYear = 2004;
             $endYear = 2008;
             if (str_contains($period, '-')) {
