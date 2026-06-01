@@ -500,7 +500,7 @@
                     </div>
                 </div>
 
-                <!-- Advanced Date Period Filters -->
+                <!-- Advanced Date Period Filters & Zona Residencial -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3.5 border-t border-slate-100">
                     <div class="flex flex-col">
                         <label class="text-[9px] font-mono tracking-wider text-slate-500 uppercase mb-1.5 font-bold flex items-center justify-between">
@@ -519,6 +519,24 @@
                             </x-context-tooltip>
                         </label>
                         <input type="date" wire:model.live="data_fim" class="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-lg p-2.5 focus:ring-blue-900 focus:border-blue-900 outline-none font-sans" />
+                    </div>
+                </div>
+
+                <!-- Zona Residencial (Filtro para Saúde/Epidemiológico) -->
+                <div class="pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div class="flex flex-col">
+                        <label class="text-[9px] font-mono tracking-wider text-slate-500 uppercase mb-1.5 font-bold flex items-center gap-1.5">
+                            <span>Zona Residencial (Dimensão Epidemiológica)</span>
+                            <x-context-tooltip title="Zona Residencial" content="Filtra a granularidade dos dados de saúde: Rural, Urbana ou Total Consolidado.">
+                                <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </x-context-tooltip>
+                        </label>
+                        <span class="text-[10px] text-slate-400 font-sans">Selecione para filtrar os casos por área geográfica</span>
+                    </div>
+                    <div class="flex space-x-1.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 w-fit">
+                        <button type="button" wire:click="$set('zona', 'total')" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition duration-150 {{ $zona === 'total' ? 'bg-white text-slate-800 shadow-xs border border-slate-200' : 'text-slate-550 hover:text-slate-700' }}">Consolidado (Total)</button>
+                        <button type="button" wire:click="$set('zona', 'rural')" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition duration-150 {{ $zona === 'rural' ? 'bg-white text-slate-800 shadow-xs border border-slate-200' : 'text-slate-555 hover:text-slate-750' }}">Rural</button>
+                        <button type="button" wire:click="$set('zona', 'urban')" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition duration-150 {{ $zona === 'urban' ? 'bg-white text-slate-800 shadow-xs border border-slate-200' : 'text-slate-555 hover:text-slate-750' }}">Urbana</button>
                     </div>
                 </div>
             </div>
@@ -1257,6 +1275,11 @@
         Alpine.data('dashboardCharts', (initialData) => ({
             lineChart: null,
             barChart: null,
+            radarChart: null,
+            scatterChart: null,
+            groupedBarChart: null,
+            doughnutChart: null,
+            currentPeriodLabel: initialData.periodLabel,
             
             init() {
                 this.$nextTick(() => {
@@ -1267,107 +1290,244 @@
             initCharts(data) {
                 const lineCtx = document.getElementById('dashboardLineChart');
                 const barCtx = document.getElementById('dashboardBarChart');
-                
-                if (!lineCtx || !barCtx) return;
+                const radarCtx = document.getElementById('dashboardRadarChart');
+                const scatterCtx = document.getElementById('dashboardScatterChart');
+                const groupedCtx = document.getElementById('dashboardGroupedBarChart');
+                const doughnutCtx = document.getElementById('dashboardDoughnutChart');
                 
                 // 1. Line Chart
-                const lineLabels = data.historical.map(item => item.year);
-                const lineValues = data.historical.map(item => item.cases);
-                
-                this.lineChart = new Chart(lineCtx, {
-                    type: 'line',
-                    data: {
-                        labels: lineLabels,
-                        datasets: [{
-                            label: `Casos de ${data.disease} em ${data.territory}`,
-                            data: lineValues,
-                            borderColor: 'rgb(225, 29, 72)',
-                            backgroundColor: 'rgba(225, 29, 72, 0.08)',
-                            borderWidth: 2.5,
-                            fill: true,
-                            tension: 0.35,
-                            pointBackgroundColor: 'rgb(225, 29, 72)',
-                            pointBorderColor: '#ffffff',
-                            pointBorderWidth: 1.5,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                labels: {
-                                    boxWidth: 12,
-                                    font: { family: 'Inter', size: 9, weight: 'bold' }
+                if (lineCtx) {
+                    const lineLabels = data.historical.map(item => item.year);
+                    const lineValues = data.historical.map(item => item.cases);
+                    
+                    this.lineChart = new Chart(lineCtx, {
+                        type: 'line',
+                        data: {
+                            labels: lineLabels,
+                            datasets: [{
+                                label: `Casos de ${data.disease} em ${data.territory}`,
+                                data: lineValues,
+                                borderColor: 'rgb(225, 29, 72)',
+                                backgroundColor: 'rgba(225, 29, 72, 0.08)',
+                                borderWidth: 2.5,
+                                fill: true,
+                                tension: 0.35,
+                                pointBackgroundColor: 'rgb(225, 29, 72)',
+                                pointBorderColor: '#ffffff',
+                                pointBorderWidth: 1.5,
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    labels: { boxWidth: 12, font: { family: 'Inter', size: 9, weight: 'bold' } }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                                    ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { font: { family: 'JetBrains Mono', size: 9 } }
                                 }
                             }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                                ticks: { font: { family: 'JetBrains Mono', size: 9 } }
-                            },
-                            x: {
-                                grid: { display: false },
-                                ticks: { font: { family: 'JetBrains Mono', size: 9 } }
-                            }
                         }
-                    }
-                });
+                    });
+                }
                 
                 // 2. Bar Chart
-                const territories = ['Baião', 'Cametá', 'Mocajuba'];
-                this.barChart = new Chart(barCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: territories,
-                        datasets: [{
-                            label: `Casos Locais (${data.disease})`,
-                            data: data.comparison,
-                            backgroundColor: territories.map(t => t === data.territory ? 'rgba(30, 58, 138, 0.85)' : 'rgba(148, 163, 184, 0.5)'),
-                            borderColor: territories.map(t => t === data.territory ? 'rgb(30, 58, 138)' : 'rgb(148, 163, 184)'),
-                            borderWidth: 1.5,
-                            borderRadius: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                labels: {
-                                    boxWidth: 12,
-                                    font: { family: 'Inter', size: 9, weight: 'bold' }
+                if (barCtx) {
+                    const territories = ['Baião', 'Cametá', 'Mocajuba'];
+                    this.barChart = new Chart(barCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: territories,
+                            datasets: [{
+                                label: `Casos Locais (${data.disease})`,
+                                data: data.comparison,
+                                backgroundColor: territories.map(t => t === data.territory ? 'rgba(30, 58, 138, 0.85)' : 'rgba(148, 163, 184, 0.5)'),
+                                borderColor: territories.map(t => t === data.territory ? 'rgb(30, 58, 138)' : 'rgb(148, 163, 184)'),
+                                borderWidth: 1.5,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    labels: { boxWidth: 12, font: { family: 'Inter', size: 9, weight: 'bold' } }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                                    ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { font: { family: 'JetBrains Mono', size: 9 } }
                                 }
                             }
+                        }
+                    });
+                }
+
+                // 3. Radar Chart
+                if (radarCtx) {
+                    this.radarChart = new Chart(radarCtx, {
+                        type: 'radar',
+                        data: {
+                            labels: ['Ambiental', 'Vulnerabilidade Social', 'Risco Sanitário', 'Pressão Econômica', 'População Total'],
+                            datasets: [{
+                                label: `Perfil de Risco (${data.territory})`,
+                                data: data.radar,
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                borderColor: 'rgb(16, 185, 129)',
+                                pointBackgroundColor: 'rgb(16, 185, 129)',
+                                borderWidth: 2
+                            }]
                         },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                                ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                r: {
+                                    angleLines: { display: true },
+                                    suggestedMin: 0,
+                                    suggestedMax: 100,
+                                    ticks: { backdropColor: 'transparent', font: { size: 8 } }
+                                }
                             },
-                            x: {
-                                grid: { display: false },
-                                ticks: { font: { family: 'JetBrains Mono', size: 9 } }
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                }
+
+                // 4. Scatter Chart
+                if (scatterCtx) {
+                    this.scatterChart = new Chart(scatterCtx, {
+                        type: 'scatter',
+                        data: {
+                            datasets: [{
+                                label: `${data.indicator} vs Casos de ${data.disease}`,
+                                data: data.correlation,
+                                backgroundColor: 'rgb(139, 92, 246)',
+                                borderColor: 'rgb(139, 92, 246)',
+                                pointRadius: 6,
+                                pointHoverRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: {
+                                    title: { display: true, text: data.indicator, font: { size: 9, weight: 'bold' } },
+                                    ticks: { font: { size: 8 } }
+                                },
+                                y: {
+                                    title: { display: true, text: 'Casos', font: { size: 9, weight: 'bold' } },
+                                    ticks: { font: { size: 8 } }
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
+
+                // 5. Grouped Bar Chart
+                if (groupedCtx) {
+                    const diseases = Object.keys(data.allDiseases);
+                    const colors = [
+                        'rgba(225, 29, 72, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(139, 92, 246, 0.8)',
+                        'rgba(236, 72, 153, 0.8)',
+                        'rgba(100, 116, 139, 0.8)'
+                    ];
+                    const datasets = diseases.map((disease, idx) => ({
+                        label: disease,
+                        data: data.allDiseases[disease],
+                        backgroundColor: colors[idx % colors.length],
+                        borderRadius: 2
+                    }));
+
+                    this.groupedBarChart = new Chart(groupedCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Baião', 'Cametá', 'Mocajuba'],
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { beginAtZero: true, ticks: { font: { size: 8 } } },
+                                x: { ticks: { font: { size: 8 } } }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: { boxWidth: 8, font: { size: 8 } }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // 6. Doughnut Chart
+                if (doughnutCtx) {
+                    this.doughnutChart = new Chart(doughnutCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Baseline (N1)', 'Moderado (N2)', 'Alto (N3)', 'Crítico (N4)'],
+                            datasets: [{
+                                data: data.riskDistribution,
+                                backgroundColor: ['#e2e8f0', '#facc15', '#f59e0b', '#e11d48'],
+                                borderWidth: 1.5
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                    labels: { boxWidth: 10, font: { size: 9, weight: 'bold' } }
+                                }
+                            },
+                            cutout: '60%'
+                        }
+                    });
+                }
             },
             
             updateCharts(detail) {
+                this.currentPeriodLabel = detail.periodLabel || this.currentPeriodLabel;
+
                 if (!this.lineChart || !this.barChart) {
                     this.initCharts({
                         disease: detail.disease,
                         territory: detail.territory,
                         historical: detail.historical,
-                        comparison: detail.comparison
+                        comparison: detail.comparison,
+                        radar: detail.radar,
+                        correlation: detail.correlation,
+                        indicator: detail.indicator,
+                        allDiseases: detail.allDiseases || initialData.allDiseases,
+                        riskDistribution: detail.riskDistribution || initialData.riskDistribution
                     });
                     return;
                 }
@@ -1375,7 +1535,6 @@
                 // Update Line Chart
                 const lineLabels = detail.historical.map(item => item.year);
                 const lineValues = detail.historical.map(item => item.cases);
-                
                 this.lineChart.data.labels = lineLabels;
                 this.lineChart.data.datasets[0].label = `Casos de ${detail.disease} em ${detail.territory}`;
                 this.lineChart.data.datasets[0].data = lineValues;
@@ -1388,6 +1547,27 @@
                 this.barChart.data.datasets[0].backgroundColor = territories.map(t => t === detail.territory ? 'rgba(30, 58, 138, 0.85)' : 'rgba(148, 163, 184, 0.5)');
                 this.barChart.data.datasets[0].borderColor = territories.map(t => t === detail.territory ? 'rgb(30, 58, 138)' : 'rgb(148, 163, 184)');
                 this.barChart.update();
+
+                // Update Radar Chart
+                if (this.radarChart) {
+                    this.radarChart.data.datasets[0].label = `Perfil de Risco (${detail.territory})`;
+                    this.radarChart.data.datasets[0].data = detail.radar;
+                    this.radarChart.update();
+                }
+
+                // Update Scatter Chart
+                if (this.scatterChart) {
+                    this.scatterChart.data.datasets[0].label = `${detail.indicator} vs Casos de ${detail.disease}`;
+                    this.scatterChart.data.datasets[0].data = detail.correlation;
+                    this.scatterChart.options.scales.x.title.text = detail.indicator;
+                    this.scatterChart.update();
+                }
+
+                // Update Doughnut Risk distribution if supplied
+                if (this.doughnutChart && detail.riskDistribution) {
+                    this.doughnutChart.data.datasets[0].data = detail.riskDistribution;
+                    this.doughnutChart.update();
+                }
             }
         }));
     }

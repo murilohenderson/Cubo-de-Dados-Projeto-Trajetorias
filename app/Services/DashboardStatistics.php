@@ -20,14 +20,12 @@ class DashboardStatistics
             now()->addMinutes(30),
             function () use ($filters) {
                 $query = Cell::query();
-                // Apply optional filters
                 if (!empty($filters['activeFace'])) {
                     $query->where('face', $filters['activeFace']);
                 }
                 if (!empty($filters['region_id'])) {
                     $query->where('region_id', $filters['region_id']);
                 }
-                // Assuming the cell has a "date" column (Y-m-d) and a "cases" integer column
                 return $query->selectRaw(
                     "DATE_FORMAT(`date`, '%Y-%m') as period, SUM(cases) as total"
                 )
