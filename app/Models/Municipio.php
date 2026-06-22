@@ -23,4 +23,20 @@ class Municipio extends Model
     {
         return $this->hasMany(DadoCubo::class, 'municipio_id');
     }
+
+    /**
+     * Arestas do grafo de correlações associadas a este município.
+     */
+    public function correlacoes(): HasMany
+    {
+        return $this->hasMany(CorrelacaoVariavel::class, 'municipio_id');
+    }
+
+    /**
+     * Vetores de features de ML gerados para este município.
+     */
+    public function featuresMl(): HasMany
+    {
+        return $this->hasMany(FeatureMl::class, 'municipio_id');
+    }
 }

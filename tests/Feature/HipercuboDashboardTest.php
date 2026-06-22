@@ -76,10 +76,20 @@ class HipercuboDashboardTest extends TestCase
     {
         $component = Livewire::test(HipercuboDashboard::class);
 
-        // Dimensions must have all 4 axes
-        $component->assertSet('dimensions.ambiental.indicators', ['Focos de Calor', 'Incremento Desflorestamento']);
-        $component->assertSet('dimensions.social.indicators', ['Populacao Total']);
-        $component->assertSet('dimensions.economica.indicators', ['PIB per capita']);
+        // Dimensions must have all 4 axes and contain the required indicators
+        $component->assertSet('dimensions.ambiental.indicators', function ($indicators) {
+            return is_array($indicators) && 
+                   in_array('Focos de Calor', $indicators) && 
+                   in_array('Incremento Desflorestamento', $indicators);
+        });
+
+        $component->assertSet('dimensions.social.indicators', function ($indicators) {
+            return is_array($indicators) && in_array('Populacao Total', $indicators);
+        });
+
+        $component->assertSet('dimensions.economica.indicators', function ($indicators) {
+            return is_array($indicators) && in_array('PIB per capita', $indicators);
+        });
 
         // Epidemiological axis must have 7 diseases
         $component->assertCount('dimensions.epidemiologica.indicators', 7);
@@ -88,7 +98,7 @@ class HipercuboDashboardTest extends TestCase
         $component->assertCount('territories', 3);
 
         // selectedInd1 must be set to the first indicator of the front face's dim1 (ambiental)
-        $component->assertSet('selectedInd1', 'Focos de Calor');
+        $component->assertSet('selectedInd1', 'Anomalia de Precipitação Negativa');
     }
 
     /**

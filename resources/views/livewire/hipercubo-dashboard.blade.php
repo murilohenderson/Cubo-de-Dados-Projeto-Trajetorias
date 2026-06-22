@@ -4,6 +4,7 @@
         leftWidth: 42,
         isResizing: false,
         isDesktop: window.innerWidth >= 1024,
+        activeTab: 'matriz',
         init() {
             window.addEventListener('resize', () => {
                 this.isDesktop = window.innerWidth >= 1024;
@@ -461,7 +462,34 @@
                 </div>
             </div>
 
-            <!-- Dynamic Selectors & Advanced Date Period Filters -->
+            <!-- Tab Navigation Menu -->
+            <div class="flex space-x-1 border-b border-slate-200">
+                <button type="button" 
+                        @click="activeTab = 'matriz'"
+                        class="px-4 py-2 text-xs font-bold transition duration-150 border-b-2"
+                        :class="activeTab === 'matriz' ? 'border-blue-900 text-blue-900 border-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                >
+                    Matriz de Risco (Cubo)
+                </button>
+                <button type="button" 
+                        @click="activeTab = 'grafo'"
+                        class="px-4 py-2 text-xs font-bold transition duration-150 border-b-2"
+                        :class="activeTab === 'grafo' ? 'border-blue-900 text-blue-900 border-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                >
+                    Grafo de Relações (D3.js)
+                </button>
+                <button type="button" 
+                        @click="activeTab = 'ml'"
+                        class="px-4 py-2 text-xs font-bold transition duration-150 border-b-2"
+                        :class="activeTab === 'ml' ? 'border-blue-900 text-blue-900 border-blue-900' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                >
+                    Pipeline de ML (Rede Neural)
+                </button>
+            </div>
+
+            <!-- TAB: MATRIZ DE RISCO -->
+            <div x-show="activeTab === 'matriz'" class="space-y-6">
+                <!-- Dynamic Selectors & Advanced Date Period Filters -->
             <div class="bg-white p-4 border border-slate-200 rounded-2xl space-y-4 shadow-sm">
                 <div class="flex items-center space-x-2">
                     <span class="text-[9px] font-mono bg-blue-50 border border-blue-200 text-blue-900 px-2 py-0.5 rounded uppercase font-bold">FILTROS AVANÇADOS DO CUBO</span>
@@ -1089,6 +1117,237 @@
                     <span class="text-[10px] font-mono tracking-wider uppercase font-bold text-slate-500">Selecione uma célula na matriz de síntese para abrir o dossiê geo-espacial e drill-down</span>
                 </div>
             @endif
+            </div> <!-- End of TAB: MATRIZ DE RISCO -->
+
+            <!-- TAB: GRAFO DE RELAÇÕES -->
+            <div x-show="activeTab === 'grafo'" style="display: none;" class="space-y-6" x-data="relationGraph">
+                <div class="bg-white p-4 border border-slate-200 rounded-2xl space-y-4 shadow-sm">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[9px] font-mono bg-blue-50 border border-blue-200 text-blue-900 px-2 py-0.5 rounded uppercase font-bold">FILTROS DO GRAFO</span>
+                        <span class="text-[10px] text-slate-500 font-sans">Ajuste os parâmetros para recalcular o grafo de influência</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <!-- Filtro Lag -->
+                        <div class="flex flex-col">
+                            <label class="text-[9px] font-mono tracking-wider text-slate-500 uppercase mb-1.5 font-bold">Lag Temporal (Atraso)</label>
+                            <select x-model="lag" class="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-lg p-2.5 outline-none font-sans">
+                                <option value="">Todos os Lags</option>
+                                <option value="0">Lag 0 (Simultâneo)</option>
+                                <option value="1">Lag 1 ano</option>
+                                <option value="2">Lag 2 anos</option>
+                                <option value="3">Lag 3 anos</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtro P-Valor -->
+                        <div class="flex flex-col">
+                            <label class="text-[9px] font-mono tracking-wider text-slate-500 uppercase mb-1.5 font-bold">P-Valor Máximo (Relevância)</label>
+                            <select x-model="pMax" class="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-lg p-2.5 outline-none font-sans">
+                                <option value="0.01">p < 0.01 (Extremo)</option>
+                                <option value="0.05">p < 0.05 (Padrão Científico)</option>
+                                <option value="0.10">p < 0.10 (Amplo)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtro Município -->
+                        <div class="flex flex-col">
+                            <label class="text-[9px] font-mono tracking-wider text-slate-500 uppercase mb-1.5 font-bold">Território</label>
+                            <select x-model="municipioId" class="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-lg p-2.5 outline-none font-sans">
+                                <option value="">Região Baixo Tocantins (Todos)</option>
+                                <option value="1">Baião</option>
+                                <option value="2">Cametá</option>
+                                <option value="3">Mocajuba</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- D3.js SVG Container and Info Sidenav -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
+                    <!-- Graph Render Area -->
+                    <div class="lg:col-span-2 bg-[#0f172a] rounded-2xl p-4 border border-slate-800 relative flex flex-col justify-between shadow-lg min-h-[500px]">
+                        <div class="absolute top-4 left-4 z-10 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-xl text-white">
+                            <h4 class="text-xs font-bold font-sans">Grafo de Influência (Graph Layer)</h4>
+                            <span class="text-[9px] text-slate-400 font-mono font-bold block mt-1">Scroll para Zoom. Arraste os nós para organizar.</span>
+                        </div>
+                        <div class="flex items-center justify-center flex-grow w-full h-full" id="d3-graph-container">
+                            <div x-show="isLoading" class="text-slate-400 font-mono text-xs animate-pulse">Carregando relações do banco de dados...</div>
+                        </div>
+                        
+                        <!-- Legend of node colors -->
+                        <div class="flex flex-wrap gap-3.5 bg-slate-950/80 border border-slate-900/50 p-3 rounded-xl">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-[#10b981]"></span>
+                                <span class="text-[9px] text-slate-350 font-mono font-bold">Ambiental</span>
+                            </div>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-[#f59e0b]"></span>
+                                <span class="text-[9px] text-slate-350 font-mono font-bold">Social</span>
+                            </div>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-[#3b82f6]"></span>
+                                <span class="text-[9px] text-slate-350 font-mono font-bold">Econômico</span>
+                            </div>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="h-2.5 w-2.5 rounded-full bg-[#ef4444]"></span>
+                                <span class="text-[9px] text-slate-350 font-mono font-bold">Epidemiológico</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Information Side Panel -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-between shadow-xs">
+                        <div class="space-y-4">
+                            <span class="text-[9px] font-mono text-slate-500 uppercase font-black tracking-widest block border-b border-slate-100 pb-2">Detalhes da Relação Selecionada</span>
+                            
+                            <!-- If no selection -->
+                            <div x-show="!selectedNode && !selectedEdge" class="text-center py-12 text-slate-400 font-sans text-xs">
+                                <svg class="w-10 h-10 opacity-30 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                                </svg>
+                                Clique em um nó ou passe o mouse em uma seta para inspecionar os pesos matemáticos.
+                            </div>
+
+                            <!-- If node selected -->
+                            <div x-show="selectedNode" style="display: none;" class="space-y-3">
+                                <div>
+                                    <span class="text-[8px] font-mono text-slate-400 block uppercase">Nó Selecionado (Variável)</span>
+                                    <h4 class="text-sm font-bold text-slate-900" x-text="selectedNode ? selectedNode.label : ''"></h4>
+                                </div>
+                                <div>
+                                    <span class="text-[8px] font-mono text-slate-400 block uppercase">Eixo Temático</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase inline-block" 
+                                          :style="`background-color: ${selectedNode ? selectedNode.cor : ''}`"
+                                          x-text="selectedNode ? selectedNode.eixo_nome : ''"></span>
+                                </div>
+                                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200/60 text-[11px] text-slate-650 leading-relaxed">
+                                    Esta variável representa um indicador do Projeto Trajetórias que interage dinamicamente com as outras dimensões através de conexões causais.
+                                </div>
+                            </div>
+
+                            <!-- If edge selected -->
+                            <div x-show="selectedEdge" style="display: none;" class="space-y-3">
+                                <div>
+                                    <span class="text-[8px] font-mono text-slate-400 block uppercase">Aresta Selecionada (Conexão)</span>
+                                    <div class="flex items-center space-x-1.5 flex-wrap">
+                                        <span class="font-bold text-slate-800 text-xs" x-text="selectedEdge ? selectedEdge.source.label : ''"></span>
+                                        <span class="text-slate-400 font-bold">&rarr;</span>
+                                        <span class="font-bold text-slate-800 text-xs" x-text="selectedEdge ? selectedEdge.target.label : ''"></span>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-center">
+                                        <span class="text-[8px] font-mono text-slate-400 uppercase block">Correlação Pearson</span>
+                                        <strong class="text-sm font-mono" :class="selectedEdge && selectedEdge.pearson > 0 ? 'text-emerald-600' : 'text-rose-600'" 
+                                                x-text="selectedEdge ? selectedEdge.pearson.toFixed(3) : ''"></strong>
+                                    </div>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-center">
+                                        <span class="text-[8px] font-mono text-slate-400 uppercase block">Defasagem (Lag)</span>
+                                        <strong class="text-sm font-mono text-blue-900" x-text="selectedEdge ? selectedEdge.lag + ' ano(s)' : ''"></strong>
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-center">
+                                    <span class="text-[8px] font-mono text-slate-400 uppercase block">P-Valor (Significância)</span>
+                                    <strong class="text-[10px] font-mono text-slate-800" x-text="selectedEdge ? selectedEdge.p_valor : ''"></strong>
+                                </div>
+                                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200/60 text-[11px] text-slate-655 leading-relaxed">
+                                    <span class="font-bold text-slate-800 block mb-1">Dedução Matemática:</span>
+                                    Um aumento em <strong x-text="selectedEdge ? selectedEdge.source.label : ''"></strong> se traduz em uma alteração <span x-text="selectedEdge && selectedEdge.pearson > 0 ? 'positiva' : 'negativa'"></span> de <strong x-text="selectedEdge ? selectedEdge.target.label : ''"></strong> no território de forma defasada.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-3.5 border-t border-slate-100 text-[10px] text-slate-500 leading-relaxed font-sans">
+                            <strong>Nota Metodológica:</strong> O grafo de correlações permite identificar vias causais diretas e indiretas de influência socioecológica.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: PIPELINE DE ML -->
+            <div x-show="activeTab === 'ml'" style="display: none;" class="space-y-6">
+                <div class="bg-white p-5 border border-slate-200 rounded-2xl space-y-4 shadow-sm">
+                    <div class="flex items-center space-x-2 border-b border-slate-100 pb-3">
+                        <span class="text-[9px] font-mono bg-violet-50 border border-violet-200 text-violet-900 px-2 py-0.5 rounded uppercase font-bold">INTEGRAÇÃO PIPELINE DE IA</span>
+                        <span class="text-[10px] text-slate-500 font-sans">Interface de preparação e exportação de dados para a Rede Neural</span>
+                    </div>
+                    
+                    <p class="text-xs text-slate-650 leading-relaxed font-sans">
+                        Nosso sistema consolida as medições do <strong>Cubo Star Schema</strong> e a estrutura relacional do <strong>Graph Layer</strong> em uma tabela unificada de vetores normalizados (<code class="bg-slate-100 text-violet-700 px-1 rounded">FeatureML</code>). Cada linha representa o estado socioecológico e epidemiológico completo de uma cidade em um ano específico.
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
+                            <h5 class="text-xs font-bold text-slate-800 font-sans">Baixar Dataset de Treinamento</h5>
+                            <p class="text-[11px] text-slate-500 leading-normal">
+                                Obtenha o conjunto completo de vetores formatado para treinamento (normalização Min-Max inclusa).
+                            </p>
+                            <div class="flex space-x-2 pt-1.5">
+                                <a href="/api/v1/features-ml/export" target="_blank" class="px-3.5 py-1.5 bg-slate-900 text-white font-mono text-[10px] font-bold rounded-lg hover:bg-black transition shadow-sm">
+                                    Exportar JSON
+                                </a>
+                                <a href="/api/v1/features-ml/export?formato=pytorch" target="_blank" class="px-3.5 py-1.5 bg-violet-650 text-white font-mono text-[10px] font-bold rounded-lg hover:bg-violet-700 transition shadow-sm">
+                                    Formato PyTorch Tensor
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
+                            <h5 class="text-xs font-bold text-slate-800 font-sans">Comando de Sincronização Artisan</h5>
+                            <p class="text-[11px] text-slate-500 leading-normal">
+                                Rode este comando no terminal para reprocessar os quartis de risco e as features no banco de dados.
+                            </p>
+                            <div class="bg-slate-900 text-slate-200 p-2.5 rounded-lg font-mono text-[10px] border border-slate-800 select-all">
+                                php artisan gerar:features-ml --export-csv
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Python/PyTorch Code Integration Widget -->
+                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                    <div class="bg-slate-900 p-3.5 flex items-center justify-between border-b border-slate-800">
+                        <span class="text-[9px] font-mono text-slate-350 uppercase font-black tracking-widest block">Script Python Integrado (PyTorch GNN/MLP)</span>
+                        <span class="text-[9px] font-mono text-emerald-400 font-bold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-900">PRONTO PARA USO</span>
+                    </div>
+                    <div class="p-5 bg-slate-950 text-slate-300 font-mono text-[11px] overflow-x-auto leading-relaxed border-t border-slate-900">
+                        <pre class="text-slate-200"><code class="language-python">import torch
+import torch.nn as nn
+import requests
+import pandas as pd
+
+# 1. Carrega os dados direto da API do nosso sistema
+url = "http://localhost:8000/api/v1/features-ml/export?formato=pytorch"
+response = requests.get(url).json()
+
+feature_names = response['feature_names']
+X = torch.tensor(response['X'], dtype=torch.float32)  # [n_samples, 17 features + graph embeddings]
+y = torch.tensor(response['y'], dtype=torch.long)      # Labels de risco (1: Baixo, 4: Crítico)
+
+# 2. Definição da Rede Neural de Classificação de Relações
+class RedeClassificadoraTrajetorias(nn.Module):
+    def __init__(self, input_dim, num_classes=4):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, num_classes)
+        )
+    def forward(self, x):
+        return self.network(x)
+
+# Inicializa o modelo
+modelo = RedeClassificadoraTrajetorias(input_dim=X.shape[1])
+saida_logits = modelo(X)
+print("Formato da saída predita da Rede Neural:", saida_logits.shape)
+# Saída esperada: [n_samples, 4 classes de risco]</code></pre>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1568,6 +1827,166 @@
                     this.doughnutChart.data.datasets[0].data = detail.riskDistribution;
                     this.doughnutChart.update();
                 }
+            }
+        }));
+
+        // ── D3.js RELATION GRAPH COMPONENT ──
+        if (window.Alpine.components && window.Alpine.components['relationGraph']) return;
+        
+        Alpine.data('relationGraph', () => ({
+            lag: '',
+            pMax: '0.05',
+            municipioId: '',
+            isLoading: false,
+            selectedNode: null,
+            selectedEdge: null,
+            simulation: null,
+            
+            init() {
+                this.fetchGraph();
+                this.$watch('lag', () => this.fetchGraph());
+                this.$watch('pMax', () => this.fetchGraph());
+                this.$watch('municipioId', () => this.fetchGraph());
+            },
+            
+            fetchGraph() {
+                this.isLoading = true;
+                let url = `/api/v1/grafo?p_max=${this.pMax}`;
+                if (this.lag !== '') url += `&lag=${this.lag}`;
+                if (this.municipioId !== '') url += `&municipio_id=${this.municipioId}`;
+                
+                fetch(url)
+                    .then(res => res.json())
+                    .then(data => {
+                        this.renderD3Graph(data);
+                        this.isLoading = false;
+                    })
+                    .catch(err => {
+                        console.error('Falha ao carregar grafo:', err);
+                        this.isLoading = false;
+                    });
+            },
+            
+            renderD3Graph(data) {
+                const container = document.getElementById('d3-graph-container');
+                if (!container) return;
+                container.innerHTML = '';
+                
+                const width = container.clientWidth || 500;
+                const height = 440;
+                
+                const svg = d3.select('#d3-graph-container')
+                    .append('svg')
+                    .attr('width', '100%')
+                    .attr('height', height)
+                    .attr('viewBox', [0, 0, width, height])
+                    .attr('style', 'max-width: 100%; height: auto; background-color: #0f172a; border-radius: 1rem;');
+                    
+                const g = svg.append('g');
+                
+                // Zoom & Pan
+                svg.call(d3.zoom().scaleExtent([0.5, 5]).on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                }));
+                
+                const nodes = data.nos.map(d => ({...d}));
+                const links = data.arestas.map(d => ({
+                    source: d.source,
+                    target: d.target,
+                    pearson: d.pearson,
+                    lag: d.lag,
+                    p_valor: d.p_valor,
+                    peso: d.weight
+                }));
+                
+                this.simulation = d3.forceSimulation(nodes)
+                    .force('link', d3.forceLink(links).id(d => d.id).distance(130))
+                    .force('charge', d3.forceManyBody().strength(-200))
+                    .force('center', d3.forceCenter(width / 2, height / 2))
+                    .force('collision', d3.forceCollide().radius(35));
+                    
+                // Markers for arrows
+                svg.append('defs').selectAll('marker')
+                    .data(['arrow'])
+                    .enter().append('marker')
+                    .attr('id', d => d)
+                    .attr('viewBox', '0 -5 10 10')
+                    .attr('refX', 28) // Offset to sit outside the node circle
+                    .attr('refY', 0)
+                    .attr('markerWidth', 6)
+                    .attr('markerHeight', 6)
+                    .attr('orient', 'auto')
+                    .append('path')
+                    .attr('fill', '#475569')
+                    .attr('d', 'M0,-5L10,0L0,5');
+                    
+                // Link lines
+                const link = g.append('g')
+                    .selectAll('line')
+                    .data(links)
+                    .join('line')
+                    .attr('stroke', d => d.pearson > 0 ? '#10b981' : '#ef4444')
+                    .attr('stroke-opacity', 0.6)
+                    .attr('stroke-width', d => Math.max(1.5, Math.abs(d.pearson) * 5))
+                    .attr('marker-end', 'url(#arrow)')
+                    .style('cursor', 'pointer')
+                    .on('mouseover', (event, d) => {
+                        this.selectedEdge = d;
+                        this.selectedNode = null;
+                    });
+                    
+                // Node groups
+                const node = g.append('g')
+                    .selectAll('g')
+                    .data(nodes)
+                    .join('g')
+                    .call(d3.drag()
+                        .on('start', (e, d) => {
+                            if (!e.active) this.simulation.alphaTarget(0.3).restart();
+                            d.fx = d.x;
+                            d.fy = d.y;
+                        })
+                        .on('drag', (e, d) => {
+                            d.fx = e.x;
+                            d.fy = e.y;
+                        })
+                        .on('end', (e, d) => {
+                            if (!e.active) this.simulation.alphaTarget(0);
+                            d.fx = null;
+                            d.fy = null;
+                        }))
+                    .style('cursor', 'grab')
+                    .on('click', (event, d) => {
+                        this.selectedNode = d;
+                        this.selectedEdge = null;
+                    });
+                    
+                node.append('circle')
+                    .attr('r', 12)
+                    .attr('fill', d => d.cor)
+                    .attr('stroke', '#1e293b')
+                    .attr('stroke-width', 2);
+                    
+                node.append('text')
+                    .attr('x', 16)
+                    .attr('y', 4)
+                    .text(d => d.label)
+                    .attr('font-size', '8px')
+                    .attr('font-family', 'Inter, sans-serif')
+                    .attr('fill', '#cbd5e1')
+                    .style('text-shadow', '1px 1px 2px #000')
+                    .attr('pointer-events', 'none');
+                    
+                this.simulation.on('tick', () => {
+                    link
+                        .attr('x1', d => d.source.x)
+                        .attr('y1', d => d.source.y)
+                        .attr('x2', d => d.target.x)
+                        .attr('y2', d => d.target.y);
+                        
+                    node
+                        .attr('transform', d => `translate(${d.x},${d.y})`);
+                });
             }
         }));
     }

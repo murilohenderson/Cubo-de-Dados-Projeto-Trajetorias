@@ -32,4 +32,20 @@ class Variavel extends Model
     {
         return $this->hasMany(DadoCubo::class, 'variavel_id');
     }
+
+    /**
+     * Arestas do grafo onde esta variável é a ORIGEM (variavel_a).
+     */
+    public function correlacoesComoOrigem(): HasMany
+    {
+        return $this->hasMany(CorrelacaoVariavel::class, 'variavel_a_id');
+    }
+
+    /**
+     * Arestas do grafo onde esta variável é o DESTINO (variavel_b).
+     */
+    public function correlacoesComoDestino(): HasMany
+    {
+        return $this->hasMany(CorrelacaoVariavel::class, 'variavel_b_id');
+    }
 }
