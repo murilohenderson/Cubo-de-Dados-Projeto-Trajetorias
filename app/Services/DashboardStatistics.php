@@ -3,7 +3,7 @@ namespace App\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use App\Models\Cell; // Assuming there is a Cell model representing the data cube cells
+use App\Models\Cell;
 
 class DashboardStatistics
 {

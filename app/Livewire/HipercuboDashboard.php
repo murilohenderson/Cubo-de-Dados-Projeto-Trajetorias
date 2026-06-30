@@ -62,9 +62,14 @@ class HipercuboDashboard extends Component
     public array $drillDownData = [];
 
     /**
-     * Details of the selected matrix cell for the scientific evidence panel.
+     * Variable selected in the temporal chart dropdown.
      */
-    public ?array $selectedCell = null;
+    public string $selectedChartVariable = '';
+
+    /**
+     * Territory selected for variable correlation comparison analysis.
+     */
+    public string $selectedTerritory = 'Cametá';
 
     /**
      * The 4 relational dimensions of the Hypercube, populated dynamically from the database.
@@ -144,17 +149,17 @@ class HipercuboDashboard extends Component
     {
         $eixos = Eixo::with('variaveis')->get();
         $shorts = [
-            'ambiental' => 'Clima/Solo (INPE)',
-            'social' => 'Demografia/Infraestrutura',
-            'economica' => 'Mercado/Produção',
+            'ambiental'      => 'Clima/Solo (INPE)',
+            'social'         => 'Demografia/Infraestrutura',
+            'economica'      => 'Mercado/Produção',
             'epidemiologica' => 'Saúde (Fiocruz)'
         ];
 
         $this->dimensions = [];
         foreach ($eixos as $eixo) {
             $this->dimensions[$eixo->slug] = [
-                'name' => 'Dimensão ' . $eixo->nome,
-                'short' => $shorts[$eixo->slug] ?? $eixo->nome,
+                'name'       => 'Dimensão ' . $eixo->nome,
+                'short'      => $shorts[$eixo->slug] ?? $eixo->nome,
                 'indicators' => $eixo->variaveis->pluck('nome')->toArray()
             ];
         }
@@ -202,13 +207,18 @@ class HipercuboDashboard extends Component
         }
 
         $mapping = $this->faceMappings[$this->activeFace];
-        $dim1 = $mapping['key1'];
-        $dim2 = $mapping['key2'];
+        $dim1    = $mapping['key1'];
+        $dim2    = $mapping['key2'];
 
         $this->selectedInd1 = $this->dimensions[$dim1]['indicators'][0] ?? '';
         $this->selectedInd2 = $this->dimensions[$dim2]['indicators'][0] ?? '';
-        
-        $this->selectedCell = null;
+
+        // Reset chart variable to first available variable in the new face
+        $allVars = array_merge(
+            $this->dimensions[$dim1]['indicators'] ?? [],
+            $this->dimensions[$dim2]['indicators'] ?? []
+        );
+        $this->selectedChartVariable = $allVars[0] ?? '';
     }
 
     /**
@@ -236,98 +246,24 @@ class HipercuboDashboard extends Component
     }
 
     /**
-     * Calculador de risco epidemiológico real e dinâmico com base nos quartis de incidência municipal.
-     */
-    public function getRiskLevel(string $territory, string $disease): int
-    {
-        $municipio = Municipio::where('nome', $territory)->first();
-        $variavel = Variavel::where('nome', $disease)->first();
-        if (!$municipio || !$variavel) {
-            return 1;
-        }
-
-        $todosDados = DadoCubo::where('variavel_id', $variavel->id)->get();
-
-        if ($todosDados->isEmpty()) {
-            return 1;
-        }
-
-        $startYear = $this->getYearFromDate($this->data_inicio, 2000);
-        $endYear = $this->getYearFromDate($this->data_fim, 2019);
-
-        $filterFunc = function($d) use ($startYear, $endYear) {
-            if ($d->detalhes && isset($d->detalhes['zona_residencial']) && $d->detalhes['zona_residencial'] !== $this->zona) {
-                return false;
-            }
-            if (str_contains($d->ano_periodo, '-')) {
-                [$y1, $y2] = explode('-', $d->ano_periodo);
-                return (int)$y1 <= $endYear && (int)$y2 >= $startYear;
-            }
-            $y = (int)$d->ano_periodo;
-            return $y >= $startYear && $y <= $endYear;
-        };
-
-        $filtradosMunicipio = $todosDados->where('municipio_id', $municipio->id)->filter($filterFunc);
-        if ($filtradosMunicipio->isEmpty()) {
-            return 1;
-        }
-
-        $usaTaxa = $filtradosMunicipio->first()->taxa !== null;
-        $valorMedioMunicipio = $usaTaxa ? $filtradosMunicipio->avg('taxa') : $filtradosMunicipio->avg('valor');
-
-        if ($valorMedioMunicipio == 0) {
-            return 1;
-        }
-
-        $valoresMediosOutros = [];
-        $municipiosIds = Municipio::pluck('id')->toArray();
-        foreach ($municipiosIds as $mId) {
-            $dadosM = $todosDados->where('municipio_id', $mId)->filter($filterFunc);
-            if ($dadosM->isNotEmpty()) {
-                $valoresMediosOutros[] = $usaTaxa ? $dadosM->avg('taxa') : $dadosM->avg('valor');
-            }
-        }
-
-        if (empty($valoresMediosOutros)) {
-            return 1;
-        }
-
-        sort($valoresMediosOutros);
-        $min = $valoresMediosOutros[0];
-        $max = $valoresMediosOutros[count($valoresMediosOutros) - 1];
-
-        if ($max == $min) {
-            return 2;
-        }
-
-        // Normalização linear no intervalo [min, max] para enquadramento nos limiares de quartil (25%, 50%, 75%).
-        $fração = ($valorMedioMunicipio - $min) / ($max - $min);
-        
-        if ($fração < 0.25) return 1;
-        if ($fração < 0.50) return 2;
-        if ($fração < 0.75) return 3;
-        return 4;
-    }
-
-    /**
      * Query real indicator values for display from the database.
      */
     public function getIndicatorValue(string $territory, string $indicator): string
     {
         $municipio = Municipio::where('nome', $territory)->first();
-        $variavel = Variavel::where('nome', $indicator)->first();
+        $variavel  = Variavel::where('nome', $indicator)->first();
         if (!$municipio || !$variavel) {
             return 'N/D';
         }
 
         $startYear = $this->getYearFromDate($this->data_inicio, 2000);
-        $endYear = $this->getYearFromDate($this->data_fim, 2019);
+        $endYear   = $this->getYearFromDate($this->data_fim, 2019);
 
         $dados = DadoCubo::where('municipio_id', $municipio->id)
             ->where('variavel_id', $variavel->id)
             ->get();
 
-        $filtrados = $dados->filter(function($d) use ($startYear, $endYear) {
+        $filtrados = $dados->filter(function ($d) use ($startYear, $endYear) {
             if (str_contains($d->ano_periodo, '-')) {
                 [$y1, $y2] = explode('-', $d->ano_periodo);
                 return (int)$y1 <= $endYear && (int)$y2 >= $startYear;
@@ -340,8 +276,8 @@ class HipercuboDashboard extends Component
             return 'Sem dados no período';
         }
 
-        $ultimo = $filtrados->sortByDesc('ano_periodo')->first();
-        $unidade = $variavel->unidade;
+        $ultimo   = $filtrados->sortByDesc('ano_periodo')->first();
+        $unidade  = $variavel->unidade;
 
         if ($unidade === 'R$') {
             return 'R$ ' . number_format($ultimo->valor, 2, ',', '.');
@@ -356,19 +292,19 @@ class HipercuboDashboard extends Component
     public function getDiseaseCases(string $territory, string $disease): string
     {
         $municipio = Municipio::where('nome', $territory)->first();
-        $variavel = Variavel::where('nome', $disease)->first();
+        $variavel  = Variavel::where('nome', $disease)->first();
         if (!$municipio || !$variavel) {
             return '0 casos';
         }
 
         $startYear = $this->getYearFromDate($this->data_inicio, 2000);
-        $endYear = $this->getYearFromDate($this->data_fim, 2019);
+        $endYear   = $this->getYearFromDate($this->data_fim, 2019);
 
         $dados = DadoCubo::where('municipio_id', $municipio->id)
             ->where('variavel_id', $variavel->id)
             ->get();
 
-        $filtrados = $dados->filter(function($d) use ($startYear, $endYear) {
+        $filtrados = $dados->filter(function ($d) use ($startYear, $endYear) {
             if ($d->detalhes && isset($d->detalhes['zona_residencial']) && $d->detalhes['zona_residencial'] !== $this->zona) {
                 return false;
             }
@@ -400,19 +336,19 @@ class HipercuboDashboard extends Component
     public function getDiseaseCasesNumeric(string $territory, string $disease): int
     {
         $municipio = Municipio::where('nome', $territory)->first();
-        $variavel = Variavel::where('nome', $disease)->first();
+        $variavel  = Variavel::where('nome', $disease)->first();
         if (!$municipio || !$variavel) {
             return 0;
         }
 
         $startYear = $this->getYearFromDate($this->data_inicio, 2000);
-        $endYear = $this->getYearFromDate($this->data_fim, 2019);
+        $endYear   = $this->getYearFromDate($this->data_fim, 2019);
 
         $dados = DadoCubo::where('municipio_id', $municipio->id)
             ->where('variavel_id', $variavel->id)
             ->get();
 
-        $filtrados = $dados->filter(function($d) use ($startYear, $endYear) {
+        $filtrados = $dados->filter(function ($d) use ($startYear, $endYear) {
             if ($d->detalhes && isset($d->detalhes['zona_residencial']) && $d->detalhes['zona_residencial'] !== $this->zona) {
                 return false;
             }
@@ -433,19 +369,19 @@ class HipercuboDashboard extends Component
     public function getIndicatorValueNumeric(string $territory, string $indicator): float
     {
         $municipio = Municipio::where('nome', $territory)->first();
-        $variavel = Variavel::where('nome', $indicator)->first();
+        $variavel  = Variavel::where('nome', $indicator)->first();
         if (!$municipio || !$variavel) {
             return 0.0;
         }
 
         $startYear = $this->getYearFromDate($this->data_inicio, 2000);
-        $endYear = $this->getYearFromDate($this->data_fim, 2019);
+        $endYear   = $this->getYearFromDate($this->data_fim, 2019);
 
         $dados = DadoCubo::where('municipio_id', $municipio->id)
             ->where('variavel_id', $variavel->id)
             ->get();
 
-        $filtrados = $dados->filter(function($d) use ($startYear, $endYear) {
+        $filtrados = $dados->filter(function ($d) use ($startYear, $endYear) {
             if (str_contains($d->ano_periodo, '-')) {
                 [$y1, $y2] = explode('-', $d->ano_periodo);
                 return (int)$y1 <= $endYear && (int)$y2 >= $startYear;
@@ -463,7 +399,7 @@ class HipercuboDashboard extends Component
     public function getHistoricalData(string $territory, string $disease): array
     {
         $municipio = Municipio::where('nome', $territory)->first();
-        $variavel = Variavel::where('nome', $disease)->first();
+        $variavel  = Variavel::where('nome', $disease)->first();
 
         $series = [];
         if ($municipio && $variavel) {
@@ -478,7 +414,7 @@ class HipercuboDashboard extends Component
                     continue;
                 }
                 $series[] = [
-                    'year' => $d->ano_periodo,
+                    'year'  => $d->ano_periodo,
                     'cases' => (int)$d->valor
                 ];
             }
@@ -493,178 +429,201 @@ class HipercuboDashboard extends Component
 
         return [
             'territory' => $territory,
-            'disease' => $disease,
-            'series' => $series
+            'disease'   => $disease,
+            'series'    => $series
         ];
     }
 
     /**
-     * Calculates the multidimensional risk profile based on real database averages.
+     * Returns table data for the currently active cube face.
+     * Fetches variables from both face dimensions, one row per variable,
+     * columns per territory (municipality).
      */
-    public function getRadarData(string $territory): array
+    public function getFaceVariablesTableData(): array
     {
-        $desmatamento = $this->getIndicatorValueNumeric($territory, 'Incremento Desflorestamento');
-        $queimadas = $this->getIndicatorValueNumeric($territory, 'Focos de Calor');
-        
-        $ambScore = min(100, max(20, (($desmatamento / 350) * 50) + (($queimadas / 200) * 50)));
-
-        $pib = $this->getIndicatorValueNumeric($territory, 'PIB per capita');
-        $econScore = min(100, max(15, ($pib / 10000) * 100));
-
-        $pop = $this->getIndicatorValueNumeric($territory, 'Populacao Total');
-        $popScore = min(100, max(15, ($pop / 150000) * 100));
-
-        // Metadados de vulnerabilidade socioecológica regional
-        $riscoSaneamento = 100;
-        if ($territory === 'Cametá') $riscoSaneamento = 85;
-        if ($territory === 'Mocajuba') $riscoSaneamento = 90;
-        if ($territory === 'Baião') $riscoSaneamento = 94;
-
-        $vulSocial = 50;
-        if ($territory === 'Cametá') $vulSocial = 60;
-        if ($territory === 'Mocajuba') $vulSocial = 62;
-        if ($territory === 'Baião') $vulSocial = 72;
-
-        return [
-            round($ambScore, 1),
-            round($vulSocial, 1),
-            round($riscoSaneamento, 1),
-            round($econScore, 1),
-            round($popScore, 1)
-        ];
-    }
-
-    /**
-     * Generates correlation scatter points mapping indicator vs disease cases.
-     */
-    public function getCorrelationData(string $territory, string $disease, string $indicator): array
-    {
-        $municipio = Municipio::where('nome', $territory)->first();
-        $varDisease = Variavel::where('nome', $disease)->first();
-        $varIndicator = Variavel::where('nome', $indicator)->first();
-
-        if (!$municipio || !$varDisease || !$varIndicator) {
+        if (empty($this->dimensions)) {
             return [];
         }
 
-        $dadosDoenca = DadoCubo::where('municipio_id', $municipio->id)
-            ->where('variavel_id', $varDisease->id)
-            ->get();
+        $mapping = $this->faceMappings[$this->activeFace];
+        $dim1Key = $mapping['key1'];
+        $dim2Key = $mapping['key2'];
 
-        $points = [];
-        foreach ($dadosDoenca as $d) {
-            if ($d->detalhes && isset($d->detalhes['zona_residencial']) && $d->detalhes['zona_residencial'] !== $this->zona) {
-                continue;
-            }
-            $period = $d->ano_periodo;
-            
-            // Mapeamento de intervalos temporais compostos (ex.: "2004-2008") ou consolidados anuais (ex.: "2015").
-            $startYear = 2004;
-            $endYear = 2008;
-            if (str_contains($period, '-')) {
-                [$startYear, $endYear] = explode('-', $period);
-            } else {
-                $startYear = $endYear = (int)$period;
-            }
+        $dim1Indicators = $this->dimensions[$dim1Key]['indicators'] ?? [];
+        $dim2Indicators = $this->dimensions[$dim2Key]['indicators'] ?? [];
 
-            $dadosInd = DadoCubo::where('municipio_id', $municipio->id)
-                ->where('variavel_id', $varIndicator->id)
-                ->get()
-                ->filter(function($item) use ($startYear, $endYear) {
-                    $y = (int)$item->ano_periodo;
+        $startYear = $this->getYearFromDate($this->data_inicio, 2000);
+        $endYear   = $this->getYearFromDate($this->data_fim, 2019);
+
+        $rows = [];
+
+        // Helper closure to build a row for a given variable name and dimension label
+        $buildRow = function (string $varName, string $dimShort) use ($startYear, $endYear): array {
+            $variavel = Variavel::where('nome', $varName)->first();
+            $unidade  = $variavel?->unidade ?? '';
+            $periodo  = $startYear === $endYear ? (string)$startYear : "{$startYear}–{$endYear}";
+
+            $territoryCells = [];
+            foreach ($this->territories as $territory) {
+                $municipio = Municipio::where('nome', $territory)->first();
+                if (!$municipio || !$variavel) {
+                    $territoryCells[$territory] = ['display' => 'N/D', 'raw' => null];
+                    continue;
+                }
+
+                $dados = DadoCubo::where('municipio_id', $municipio->id)
+                    ->where('variavel_id', $variavel->id)
+                    ->get();
+
+                $filtrados = $dados->filter(function ($d) use ($startYear, $endYear) {
+                    if ($d->detalhes && isset($d->detalhes['zona_residencial']) && $d->detalhes['zona_residencial'] !== $this->zona) {
+                        return false;
+                    }
+                    if (str_contains($d->ano_periodo, '-')) {
+                        [$y1, $y2] = explode('-', $d->ano_periodo);
+                        return (int)$y1 <= $endYear && (int)$y2 >= $startYear;
+                    }
+                    $y = (int)$d->ano_periodo;
                     return $y >= $startYear && $y <= $endYear;
                 });
 
-            $indVal = $dadosInd->isEmpty() ? 0.0 : $dadosInd->avg('valor');
+                if ($filtrados->isEmpty()) {
+                    $territoryCells[$territory] = ['display' => '—', 'raw' => null];
+                    continue;
+                }
 
-            $points[] = [
-                'x' => round($indVal, 2),
-                'y' => (int)$d->valor,
-                'period' => $period
+                $ultimo = $filtrados->sortByDesc('ano_periodo')->first();
+                $raw    = $ultimo->taxa ?? $ultimo->valor;
+
+                $display = $unidade === 'R$'
+                    ? 'R$ ' . number_format((float)$raw, 2, ',', '.')
+                    : number_format((float)$raw, 1, ',', '.');
+
+                $territoryCells[$territory] = ['display' => $display, 'raw' => (float)$raw];
+            }
+
+            return [
+                'variavel'       => $varName,
+                'dimensao'       => $dimShort,
+                'unidade'        => $unidade,
+                'periodo'        => $periodo,
+                'territories'    => $territoryCells
+            ];
+        };
+
+        $dim1Short = $this->dimensions[$dim1Key]['short'] ?? $dim1Key;
+        $dim2Short = $this->dimensions[$dim2Key]['short'] ?? $dim2Key;
+
+        foreach ($dim1Indicators as $ind) {
+            $rows[] = $buildRow($ind, $dim1Short);
+        }
+        foreach ($dim2Indicators as $ind) {
+            $rows[] = $buildRow($ind, $dim2Short);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Returns temporal series data for all territories for a given variable.
+     * Used by the simple line chart below the cross-variable table.
+     * Returns: ['labels' => [...], 'datasets' => [['territory'=>..., 'data'=>[...]], ...]]
+     */
+    public function getTemporalChartData(string $varName = ''): array
+    {
+        if (empty($varName)) {
+            $varName = $this->selectedChartVariable;
+        }
+
+        $variavel  = Variavel::where('nome', $varName)->first();
+        $startYear = $this->getYearFromDate($this->data_inicio, 2000);
+        $endYear   = $this->getYearFromDate($this->data_fim, 2019);
+
+        if (!$variavel) {
+            return ['labels' => [], 'datasets' => [], 'variavel' => $varName, 'unidade' => ''];
+        }
+
+        // Collect all relevant periods across all territories to build a unified label axis
+        $allPeriods = [];
+        $territoryData = [];
+
+        foreach ($this->territories as $territory) {
+            $municipio = Municipio::where('nome', $territory)->first();
+            if (!$municipio) {
+                $territoryData[$territory] = [];
+                continue;
+            }
+
+            $dados = DadoCubo::where('municipio_id', $municipio->id)
+                ->where('variavel_id', $variavel->id)
+                ->orderBy('ano_periodo')
+                ->get();
+
+            $filtrados = $dados->filter(function ($d) use ($startYear, $endYear) {
+                if ($d->detalhes && isset($d->detalhes['zona_residencial']) && $d->detalhes['zona_residencial'] !== $this->zona) {
+                    return false;
+                }
+                if (str_contains($d->ano_periodo, '-')) {
+                    [$y1, $y2] = explode('-', $d->ano_periodo);
+                    return (int)$y1 <= $endYear && (int)$y2 >= $startYear;
+                }
+                $y = (int)$d->ano_periodo;
+                return $y >= $startYear && $y <= $endYear;
+            });
+
+            $byPeriod = [];
+            foreach ($filtrados as $d) {
+                $val = $d->taxa ?? $d->valor;
+                $byPeriod[$d->ano_periodo] = round((float)$val, 2);
+                $allPeriods[$d->ano_periodo] = true;
+            }
+            $territoryData[$territory] = $byPeriod;
+        }
+
+        ksort($allPeriods);
+        $labels = array_keys($allPeriods);
+
+        $datasets = [];
+        foreach ($this->territories as $territory) {
+            $data = [];
+            foreach ($labels as $label) {
+                $data[] = $territoryData[$territory][$label] ?? null;
+            }
+            $datasets[] = [
+                'territory' => $territory,
+                'data'      => $data
             ];
         }
 
-        return $points;
-    }
-
-    /**
-     * Selects a specific cell inside the matrix and dispatches details.
-     */
-    public function selectCell(string $territory, string $rowIndicator)
-    {
-        $mapping = $this->faceMappings[$this->activeFace];
-        $riskLevel = $this->getRiskLevel($territory, $rowIndicator);
-        $evidenceText = $this->generateEvidence($territory, $rowIndicator, $riskLevel);
-
-        $ind1_val = $this->getIndicatorValue($territory, $this->selectedInd1);
-        $ind2_val = $this->getIndicatorValue($territory, $this->selectedInd2);
-        $disease_val = $this->getDiseaseCases($territory, $rowIndicator);
-
-        $this->selectedCell = [
-            'territory' => $territory,
-            'row_indicator' => $rowIndicator,
-            'risk_level' => $riskLevel,
-            'evidence_text' => $evidenceText,
-            'indicator_1' => $this->selectedInd1,
-            'indicator_2' => $this->selectedInd2,
-            'ind1_val' => $ind1_val,
-            'ind2_val' => $ind2_val,
-            'disease_val' => $disease_val,
-            'dim_1_label' => $this->dimensions[$mapping['key1']]['short'] ?? $mapping['key1'],
-            'dim_2_label' => $this->dimensions[$mapping['key2']]['short'] ?? $mapping['key2'],
-            'timestamp' => now()->format('H:i:s')
+        return [
+            'labels'   => $labels,
+            'datasets' => $datasets,
+            'variavel' => $varName,
+            'unidade'  => $variavel->unidade ?? ''
         ];
-        
-        $this->dispatch('update-map');
-        $this->dispatch('selected-cell-updated', [
-            'disease' => $rowIndicator,
-            'territory' => $territory,
-            'historical' => $this->getHistoricalData($territory, $rowIndicator)['series'],
-            'comparison' => array_map(fn($t) => $this->getDiseaseCasesNumeric($t, $rowIndicator), $this->territories),
-            'radar' => $this->getRadarData($territory),
-            'correlation' => $this->getCorrelationData($territory, $rowIndicator, $this->selectedInd1),
-            'indicator' => $this->selectedInd1
-        ]);
-    }
-
-    /**
-     * Selects the first cell that has the specified target risk level.
-     */
-    public function selectFirstCellOfRisk(int $targetRisk)
-    {
-        $indicators = $this->dimensions['epidemiologica']['indicators'] ?? [];
-        foreach ($indicators as $disease) {
-            foreach ($this->territories as $territory) {
-                if ($this->getRiskLevel($territory, $disease) === $targetRisk) {
-                    $this->selectCell($territory, $disease);
-                    return;
-                }
-            }
-        }
     }
 
     /**
      * Compiles and opens the drill-down time-series modal.
      */
-    public function abrirDrillDown()
+    public function abrirDrillDown(string $territory = '', string $varName = '')
     {
-        if ($this->selectedCell) {
-            $territory = $this->selectedCell['territory'];
-            $rowIndicator = $this->selectedCell['row_indicator'];
-            
-            $this->drillDownData = $this->getHistoricalData($territory, $rowIndicator);
-            $this->isModalOpen = true;
+        $territory = $territory ?: ($this->territories[0] ?? '');
+        $varName   = $varName ?: $this->selectedChartVariable;
 
+        if ($territory && $varName) {
+            $this->drillDownData = $this->getHistoricalData($territory, $varName);
+            $this->isModalOpen   = true;
             $this->dispatch('open-drilldown-modal', $this->drillDownData);
         }
     }
 
     /**
-     * Streamed Response implementation for correlation matrix CSV export.
+     * Streamed Response implementation for cross-variable table CSV export.
      */
     public function exportarCSV()
     {
-        $fileName = 'matriz-correlacao-' . now()->format('Y-m-d') . '.csv';
+        $fileName = 'variaveis-cruzadas-' . now()->format('Y-m-d') . '.csv';
 
         $headers = [
             "Content-type"        => "text/csv; charset=UTF-8",
@@ -674,52 +633,41 @@ class HipercuboDashboard extends Component
             "Expires"             => "0"
         ];
 
-        $callback = function() {
+        $callback = function () {
             $file = fopen('php://output', 'w');
-            
+
             // UTF-8 BOM
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            fputcsv($file, [
-                'Cruzamento Hipercubo',
-                'Filtro Indicador 1',
-                'Valor Indicador 1',
-                'Filtro Indicador 2',
-                'Valor Indicador 2',
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            $header = [
+                'Cruzamento (Face)',
+                'Variável',
+                'Dimensão',
+                'Unidade',
+                'Período',
                 'Zona Residencial',
-                'Período Início',
-                'Período Fim',
-                'Município (Território)',
-                'Doença Vetorial Incidência',
-                'Casos Locais',
-                'Nível de Risco Calculado'
-            ], ';');
+            ];
+            foreach ($this->territories as $territory) {
+                $header[] = $territory;
+            }
+            fputcsv($file, $header, ';');
 
-            $mapping = $this->faceMappings[$this->activeFace];
-            $indicators = $this->dimensions['epidemiologica']['indicators'] ?? [];
-            
-            foreach ($indicators as $disease) {
+            $mapping  = $this->faceMappings[$this->activeFace];
+            $tableData = $this->getFaceVariablesTableData();
+
+            foreach ($tableData as $row) {
+                $line = [
+                    $mapping['label'],
+                    $row['variavel'],
+                    $row['dimensao'],
+                    $row['unidade'],
+                    $row['periodo'],
+                    strtoupper($this->zona),
+                ];
                 foreach ($this->territories as $territory) {
-                    $risk = $this->getRiskLevel($territory, $disease);
-                    $cases = $this->getDiseaseCases($territory, $disease);
-                    $val1 = $this->getIndicatorValue($territory, $this->selectedInd1);
-                    $val2 = $this->getIndicatorValue($territory, $this->selectedInd2);
-
-                    fputcsv($file, [
-                        $mapping['label'],
-                        $this->selectedInd1,
-                        $val1,
-                        $this->selectedInd2,
-                        $val2,
-                        strtoupper($this->zona),
-                        $this->data_inicio,
-                        $this->data_fim,
-                        $territory,
-                        $disease,
-                        $cases,
-                        $risk
-                    ], ';');
+                    $line[] = $row['territories'][$territory]['display'] ?? '—';
                 }
+                fputcsv($file, $line, ';');
             }
 
             fclose($file);
@@ -733,71 +681,143 @@ class HipercuboDashboard extends Component
      */
     public function updatedSelectedInd1($value)
     {
-        $this->syncSelectedCellFromDropdowns();
+        $this->dispatch('update-map');
     }
 
     public function updatedSelectedInd2($value)
     {
-        $this->syncSelectedCellFromDropdowns();
+        $this->dispatch('update-map');
     }
 
     public function updatedDataInicio()
     {
-        $this->syncSelectedCellFromDropdowns();
+        $this->dispatch('update-map');
     }
 
     public function updatedDataFim()
     {
-        $this->syncSelectedCellFromDropdowns();
+        $this->dispatch('update-map');
     }
 
     public function updatedZona()
     {
-        $this->syncSelectedCellFromDropdowns();
+        $this->dispatch('update-map');
+    }
+
+    public function updatedSelectedChartVariable()
+    {
+        $this->dispatch('update-map');
+    }
+
+    public function updatedSelectedTerritory()
+    {
+        $this->dispatch('update-map');
     }
 
     /**
-     * Synchronizes selected cell when dropdown filters change.
+     * Query data to relate two indicators (dim1 and dim2 of active face) for a selected territory.
+     * Generates datasets for dual Y-axis line chart and scatter plot.
      */
-    private function syncSelectedCellFromDropdowns()
+    public function getComparisonChartData(): array
     {
-        if ($this->selectedCell) {
-            $this->selectCell($this->selectedCell['territory'], $this->selectedCell['row_indicator']);
-        } else {
-            $this->dispatch('update-map');
-        }
-    }
+        $municipio = Municipio::where('nome', $this->selectedTerritory)->first();
+        $var1 = Variavel::where('nome', $this->selectedInd1)->first();
+        $var2 = Variavel::where('nome', $this->selectedInd2)->first();
 
-    /**
-     * Helper to generate realistic scientific synthesis based on real database figures.
-     */
-    private function generateEvidence(string $territory, string $disease, int $riskLevel): string
-    {
-        $ind1 = $this->selectedInd1;
-        $ind2 = $this->selectedInd2;
-        
-        $ind1Val = $this->getIndicatorValue($territory, $ind1);
-        $ind2Val = $this->getIndicatorValue($territory, $ind2);
-        $diseaseVal = $this->getDiseaseCases($territory, $disease);
-
-        $description = "A modelagem espacial multicritério em {$territory} indica que a proximidade de focos de alteração antrópica ('{$ind1}') associada a vulnerabilidades locais de infraestrutura ('{$ind2}') cria um ecótono propício para a proliferação vetorial. ";
-
-        if (str_contains(mb_strtolower($ind1), 'desflorestamento') && str_contains(mb_strtolower($ind2), 'populacao')) {
-            $description = "O avanço de desflorestamento no período (metrificado em {$ind1Val}) força a aproximação de hospedeiros biológicos do ecótono florestal às comunidades adjacentes. Com a densidade e o tamanho demográfico de {$territory} ({$ind2Val}), a probabilidade de contágio e a circulação do vírus/protozoário associado a {$disease} sofrem incrementos agudos.";
-        } elseif (str_contains(mb_strtolower($ind1), 'focos') && str_contains(mb_strtolower($ind2), 'pib')) {
-            $description = "O registro elevado de focos de calor ativo ({$ind1Val}) demonstra a intensa atividade de conversão do solo por queimadas agrícolas. Essa pressão, aliada ao nível financeiro do PIB local ({$ind2Val}), sinaliza frentes de exploração de pastagem extensiva e grãos, gerando anomalias térmicas e estresse imunológico nas populações que favorecem o surto ou a persistência de {$disease}.";
+        if (!$municipio || !$var1 || !$var2) {
+            return [
+                'labels' => [],
+                'values1' => [],
+                'values2' => [],
+                'scatter' => [],
+                'var1_name' => $this->selectedInd1 ?: 'Variável 1',
+                'var2_name' => $this->selectedInd2 ?: 'Variável 2',
+                'var1_unit' => '',
+                'var2_unit' => '',
+                'territory' => $this->selectedTerritory
+            ];
         }
 
-        switch ($riskLevel) {
-            case 4:
-                return "NEXO CAUSAL CRÍTICO: Em {$territory}, a sinergia ecológica e de infraestrutura entre {$ind1} e {$ind2} atingiu o limiar de saturação sanitária. {$description} O nível crítico de associação exige a ativação imediata de canais de atenção primária intersetorial e controle vetorial focado.";
-            case 3:
-                return "NEXO CAUSAL ALTO: Registra-se forte tendência de avanço epidemiológico em {$territory}. {$description} O indicador reflete um padrão sazonal de alta transmissibilidade, sendo necessária a intervenção de saneamento ambiental temporário nas comunidades.";
-            case 2:
-                return "NEXO CAUSAL MODERADO: Em {$territory}, a dinâmica de associação está dentro do canal de resposta municipal histórica. {$description} Recomenda-se ações preventivas de monitoramento e conscientização local.";
-            default:
-                return "NEXO CAUSAL BASELINE / MONITORAMENTO: Sem evidência estatística de sobrecarga sanitária ativa em {$territory}. {$description} A relação opera nos padrões esperados para o ecossistema local.";
+        $startYear = $this->getYearFromDate($this->data_inicio, 2000);
+        $endYear   = $this->getYearFromDate($this->data_fim, 2019);
+
+        // Fetch variable 1 data
+        $dados1 = DadoCubo::where('municipio_id', $municipio->id)
+            ->where('variavel_id', $var1->id)
+            ->get()
+            ->filter(function ($d) use ($startYear, $endYear) {
+                if (str_contains($d->ano_periodo, '-')) {
+                    [$y1, $y2] = explode('-', $d->ano_periodo);
+                    return (int)$y1 <= $endYear && (int)$y2 >= $startYear;
+                }
+                $y = (int)$d->ano_periodo;
+                return $y >= $startYear && $y <= $endYear;
+            })
+            ->sortBy('ano_periodo');
+
+        // Fetch variable 2 data
+        $dados2 = DadoCubo::where('municipio_id', $municipio->id)
+            ->where('variavel_id', $var2->id)
+            ->get()
+            ->filter(function ($d) use ($startYear, $endYear) {
+                if (str_contains($d->ano_periodo, '-')) {
+                    [$y1, $y2] = explode('-', $d->ano_periodo);
+                    return (int)$y1 <= $endYear && (int)$y2 >= $startYear;
+                }
+                $y = (int)$d->ano_periodo;
+                return $y >= $startYear && $y <= $endYear;
+            })
+            ->sortBy('ano_periodo');
+
+        // Map values by period
+        $map1 = [];
+        foreach ($dados1 as $d) {
+            $val = $d->taxa ?? $d->valor;
+            $map1[$d->ano_periodo] = (float)$val;
         }
+
+        $map2 = [];
+        foreach ($dados2 as $d) {
+            $val = $d->taxa ?? $d->valor;
+            $map2[$d->ano_periodo] = (float)$val;
+        }
+
+        $allPeriods = array_unique(array_merge(array_keys($map1), array_keys($map2)));
+        sort($allPeriods);
+
+        $labels = [];
+        $values1 = [];
+        $values2 = [];
+        $scatter = [];
+
+        foreach ($allPeriods as $period) {
+            $val1 = $map1[$period] ?? null;
+            $val2 = $map2[$period] ?? null;
+
+            $labels[] = $period;
+            $values1[] = $val1;
+            $values2[] = $val2;
+
+            if ($val1 !== null && $val2 !== null) {
+                $scatter[] = [
+                    'x' => $val1,
+                    'y' => $val2,
+                    'label' => $period
+                ];
+            }
+        }
+
+        return [
+            'labels' => $labels,
+            'values1' => $values1,
+            'values2' => $values2,
+            'scatter' => $scatter,
+            'var1_name' => $var1->nome,
+            'var2_name' => $var2->nome,
+            'var1_unit' => $var1->unidade ?? '',
+            'var2_unit' => $var2->unidade ?? '',
+            'territory' => $this->selectedTerritory
+        ];
     }
 
     /**
@@ -805,35 +825,47 @@ class HipercuboDashboard extends Component
      */
     public function render()
     {
-        $mapping = $this->faceMappings[$this->activeFace] ?? [];
+        $mapping  = $this->faceMappings[$this->activeFace] ?? [];
         $mappingB = $this->faceMappings[$this->activeFaceB] ?? [];
-        
-        $heatmapRows = [];
-        $indicators = $this->dimensions['epidemiologica']['indicators'] ?? [];
-        foreach ($indicators as $indicator) {
-            $heatmapRows[] = [
-                'dimension' => $this->dimensions['epidemiologica']['short'] ?? 'Saúde',
-                'indicator' => $indicator
-            ];
+
+        $dim1Key = $mapping['key1'] ?? '';
+        $dim2Key = $mapping['key2'] ?? '';
+
+        $dim1Indicators = $this->dimensions[$dim1Key]['indicators'] ?? [];
+        $dim2Indicators = $this->dimensions[$dim2Key]['indicators'] ?? [];
+
+        // All variables in the active face for the chart dropdown
+        $allFaceVariables = array_merge($dim1Indicators, $dim2Indicators);
+
+        // Ensure selectedChartVariable is set
+        if (empty($this->selectedChartVariable) && !empty($allFaceVariables)) {
+            $this->selectedChartVariable = $allFaceVariables[0];
         }
 
+        $tableData    = $this->getFaceVariablesTableData();
+        $temporalData = $this->getTemporalChartData();
+        $comparisonChartData = $this->getComparisonChartData();
+
         return view('livewire.hipercubo-dashboard', [
-            'dim1_key' => $mapping['key1'] ?? '',
-            'dim2_key' => $mapping['key2'] ?? '',
-            'dim1_label' => $this->dimensions[$mapping['key1']]['short'] ?? '',
-            'dim2_label' => $this->dimensions[$mapping['key2']]['short'] ?? '',
-            'dim1_indicators' => $this->dimensions[$mapping['key1']]['indicators'] ?? [],
-            'dim2_indicators' => $this->dimensions[$mapping['key2']]['indicators'] ?? [],
-            
+            'dim1_key'   => $dim1Key,
+            'dim2_key'   => $dim2Key,
+            'dim1_label' => $this->dimensions[$dim1Key]['short'] ?? '',
+            'dim2_label' => $this->dimensions[$dim2Key]['short'] ?? '',
+            'dim1_indicators' => $dim1Indicators,
+            'dim2_indicators' => $dim2Indicators,
+
             // Cube B fields
-            'dim1_key_b' => $mappingB['key1'] ?? '',
-            'dim2_key_b' => $mappingB['key2'] ?? '',
-            'dim1_label_b' => $this->dimensions[$mappingB['key1']]['short'] ?? '',
-            'dim2_label_b' => $this->dimensions[$mappingB['key2']]['short'] ?? '',
-            
-            'heatmapRows' => $heatmapRows,
-            'activeMapping' => $mapping,
-            'activeMappingB' => $mappingB
+            'dim1_key_b'   => $mappingB['key1'] ?? '',
+            'dim2_key_b'   => $mappingB['key2'] ?? '',
+            'dim1_label_b' => $this->dimensions[$mappingB['key1'] ?? '']['short'] ?? '',
+            'dim2_label_b' => $this->dimensions[$mappingB['key2'] ?? '']['short'] ?? '',
+
+            'activeMapping'    => $mapping,
+            'activeMappingB'   => $mappingB,
+            'tableData'        => $tableData,
+            'temporalData'     => $temporalData,
+            'comparisonChartData' => $comparisonChartData,
+            'allFaceVariables' => $allFaceVariables,
         ]);
     }
 }

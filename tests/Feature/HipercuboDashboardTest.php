@@ -36,36 +36,69 @@ class HipercuboDashboardTest extends TestCase
             ->assertSet('activeFace', 'front')
             ->call('setActiveFace', 'right')
             ->assertSet('activeFace', 'right')
-            ->assertSet('selectedCell', null);
+            ->assertSet('selectedChartVariable', 'Anomalia de Precipitação Negativa');
     }
 
     /**
-     * Test that selecting a cell updates the state and dispatches the correct event.
+     * Test that opening drill-down dispatches the correct event and updates the modal state.
      */
-    public function test_select_cell_dispatches_events(): void
+    public function test_abrir_drilldown_dispatches_events(): void
     {
         Livewire::test(HipercuboDashboard::class)
-            ->call('selectCell', 'Cametá', 'Dengue')
-            ->assertSet('selectedCell.territory', 'Cametá')
-            ->assertSet('selectedCell.row_indicator', 'Dengue')
-            ->assertDispatched('selected-cell-updated', function ($event, $params) {
+            ->call('abrirDrillDown', 'Cametá', 'Dengue')
+            ->assertSet('isModalOpen', true)
+            ->assertSet('drillDownData.territory', 'Cametá')
+            ->assertSet('drillDownData.disease', 'Dengue')
+            ->assertDispatched('open-drilldown-modal', function ($event, $params) {
                 $data = $params[0] ?? [];
                 return ($data['disease'] ?? null) === 'Dengue' &&
                        ($data['territory'] ?? null) === 'Cametá' &&
-                       is_array($data['historical'] ?? null) &&
-                       is_array($data['comparison'] ?? null);
+                       is_array($data['series'] ?? null);
             });
     }
 
     /**
-     * Test that selecting first cell of risk works correctly.
+     * Test that cross-variable table data is fetched correctly based on current face.
      */
-    public function test_select_first_cell_of_risk(): void
+    public function test_get_face_variables_table_data(): void
     {
-        // Risk level 4 (Critical) selection
-        Livewire::test(HipercuboDashboard::class)
-            ->call('selectFirstCellOfRisk', 4)
-            ->assertSet('selectedCell.risk_level', 4);
+        $component = Livewire::test(HipercuboDashboard::class);
+        
+        $tableData = $component->instance()->getFaceVariablesTableData();
+        
+        $this->assertIsArray($tableData);
+        $this->assertNotEmpty($tableData);
+        
+        $firstRow = $tableData[0];
+        $this->assertArrayHasKey('variavel', $firstRow);
+        $this->assertArrayHasKey('dimensao', $firstRow);
+        $this->assertArrayHasKey('unidade', $firstRow);
+        $this->assertArrayHasKey('periodo', $firstRow);
+        $this->assertArrayHasKey('territories', $firstRow);
+        
+        // Should contain territory columns
+        $this->assertArrayHasKey('Baião', $firstRow['territories']);
+        $this->assertArrayHasKey('Cametá', $firstRow['territories']);
+        $this->assertArrayHasKey('Mocajuba', $firstRow['territories']);
+    }
+
+    /**
+     * Test that temporal chart data is generated correctly.
+     */
+    public function test_get_temporal_chart_data(): void
+    {
+        $component = Livewire::test(HipercuboDashboard::class);
+        
+        $chartData = $component->instance()->getTemporalChartData('Dengue');
+        
+        $this->assertIsArray($chartData);
+        $this->assertArrayHasKey('labels', $chartData);
+        $this->assertArrayHasKey('datasets', $chartData);
+        $this->assertArrayHasKey('variavel', $chartData);
+        $this->assertArrayHasKey('unidade', $chartData);
+        
+        $this->assertEquals('Dengue', $chartData['variavel']);
+        $this->assertCount(3, $chartData['datasets']); // one dataset per territory
     }
 
     /**
